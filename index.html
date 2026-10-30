@@ -107,8 +107,6 @@ span.na-b{background:#f5f5f5;color:#bbb;border-radius:8px;padding:1px 6px;font-s
 
 /* ── 스프레드시트 입력 ── */
 .hot-toolbar{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap}
-#hot-container .htCore thead th{height:auto;padding:4px 2px;line-height:1.2;white-space:normal}
-#hot-container .htCore thead th small{display:block;font-size:9px;font-weight:400}
 .hot-btn{border:none;border-radius:4px;padding:5px 13px;font-size:11px;font-weight:700;cursor:pointer}
 .hot-btn-primary{background:var(--blue);color:#fff}.hot-btn-primary:hover{background:var(--navy)}
 .hot-btn-secondary{background:#f3f4f6;color:#374151;border:1px solid #d1d5db}.hot-btn-secondary:hover{background:#e5e7eb}
@@ -1566,19 +1564,19 @@ function initSpreadsheet(){
     licenseKey: 'non-commercial-and-evaluation',
     colHeaders: [
       'No.',
-      '날짜<br><small style="color:#6b7280">Date / Ngày</small>',
-      '사이트<br><small style="color:#6b7280">Site / Nhà máy</small>',
-      '장비명<br><small style="color:#6b7280">Machine / Máy</small>',
-      '교대<br><small style="color:#6b7280">Shift / Ca</small>',
-      '작업자<br><small style="color:#6b7280">Operator / Người vận hành</small>',
-      '고객사<br><small style="color:#6b7280">Công ty khách hàng</small>',
+      '날짜 / Ngày',
+      '사이트 / Site',
+      '장비명 / Máy',
+      '교대 / Ca',
+      '작업자 / Operator',
+      '고객사 / Công ty',
       'Part No.',
-      '수량<br><small style="color:#6b7280">Qty / SL</small>',
-      '시작시간<br><small style="color:#6b7280">Start / Bắt đầu</small>',
-      '종료시간<br><small style="color:#6b7280">End / Kết thúc</small>',
-      '가동(분)<br><small style="color:#6b7280">Run Min / Phút chạy</small>',
-      '비가동사유<br><small style="color:#6b7280">Downtime / Lý do dừng</small>',
-      '비고<br><small style="color:#6b7280">Remark / Ghi chú</small>',
+      '수량 / SL',
+      '시작 / Bắt đầu',
+      '종료 / Kết thúc',
+      '가동(분) / Phút chạy',
+      '비가동사유 / Lý do dừng',
+      '비고 / Remark',
     ],
     columns: [
       { data:'no', readOnly:true, width:40 },
