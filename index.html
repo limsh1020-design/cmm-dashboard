@@ -1,0 +1,1463 @@
+<!DOCTYPE html><script type="application/json" id="cowork-artifact-meta">
+{
+  "name": "Cmm Utilization Dashboard",
+  "schemaVersion": 1,
+  "description": "CMM 가동률 라이브 대시보드 — Google Sheets(CMM_가동률_v6_수정) 실시간 연동 | 3사이트 11대 2교대 | 사이트별 도넛/막대/꺾은선 차트",
+  "mcpTools": [
+    "mcp__10e84d48-0111-462f-bb74-a0dd7df7af3d__get_values"
+  ],
+  "mcpServerNames": [
+    "Google Sheets"
+  ]
+}
+</script>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CMM 가동률 라이브 대시보드</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<style>
+:root{--blue:#2E75B6;--navy:#1F3864;--green:#70AD47;--orange:#ED7D31;--red:#C00000;--bg:#f0f4f8}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:#1a2a3a;font-size:12px}
+
+.hdr{background:linear-gradient(135deg,var(--navy),var(--blue));color:#fff;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px}
+.hdr h1{font-size:15px;font-weight:700}
+.hdr .sub{font-size:10px;opacity:.75;margin-top:2px}
+.hdr-right{display:flex;align-items:center;gap:8px;font-size:10px}
+.hdr-right .tgt{background:rgba(255,255,255,.15);border-radius:4px;padding:2px 8px}
+
+.status-bar{background:#fff;border-bottom:2px solid #BDD7EE;padding:4px 14px;display:flex;align-items:center;gap:10px;font-size:10px;color:#6b7280}
+.status-bar .dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+.dot-live{background:#70AD47;animation:pulse 2s infinite}
+.dot-err{background:#C00000}
+.dot-loading{background:#FFB300;animation:spin 1s linear infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.btn-reload{background:var(--blue);color:#fff;border:none;border-radius:4px;padding:3px 10px;font-size:10px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px}
+.btn-reload:hover{background:var(--navy)}
+.btn-reload:disabled{opacity:.5;cursor:not-allowed}
+
+.kpi-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:8px 14px 4px}
+.kc{background:#fff;border-radius:6px;padding:8px 10px;box-shadow:0 1px 4px rgba(0,0,0,.07);border-left:4px solid var(--blue)}
+.kc.g{border-color:var(--green)}.kc.r{border-color:var(--red)}.kc.a{border-color:var(--orange)}
+.kc .lbl{font-size:9px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+.kc .val{font-size:20px;font-weight:800;color:var(--navy);margin:2px 0 0;line-height:1}
+.kc .sub2{font-size:9px;color:#bbb;margin-top:1px}
+
+.tabs{display:flex;border-bottom:2px solid #BDD7EE;padding:0 14px;background:#f8fbfe}
+.tab{padding:6px 13px;font-size:11px;font-weight:600;color:#6b7280;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;white-space:nowrap}
+.tab.on{color:var(--blue);border-color:var(--blue)}
+.pane{display:none;padding:10px 14px 16px}.pane.on{display:block}
+
+.sec{background:var(--navy);color:#fff;font-size:11px;font-weight:700;padding:5px 10px;border-radius:4px;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.badge{background:rgba(255,255,255,.2);border-radius:8px;padding:1px 7px;font-size:9px}
+
+.donut-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px}
+.dcard{background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.08);padding:10px;display:flex;flex-direction:column;align-items:center}
+.dcard h3{font-size:11px;font-weight:700;color:var(--navy);margin-bottom:6px}
+.dring{position:relative;height:120px;width:100%}
+.dring-val{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+.dring-val .pct{font-size:20px;font-weight:900;color:var(--navy)}
+.dring-val .lbl{font-size:9px;color:#6b7280}
+
+.week-wrap{background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.08);padding:10px 14px;margin-bottom:10px}
+.week-wrap h3{font-size:11px;font-weight:700;color:var(--navy);margin-bottom:6px}
+.week-line{position:relative;height:160px}
+
+.site-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.site-card{background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.08);overflow:hidden}
+.site-card-hdr{padding:8px 12px;display:flex;align-items:center;justify-content:space-between}
+.site-card-hdr h2{font-size:13px;font-weight:800;color:#fff}
+.site-card-hdr .site-rate{font-size:18px;font-weight:900;color:#fff}
+.site-card-hdr .site-sub{font-size:9px;color:rgba(255,255,255,.75);margin-top:1px}
+.hue-hy{background:linear-gradient(135deg,#1F3864,#2E75B6)}
+.hue-b8{background:linear-gradient(135deg,#375623,#70AD47)}
+.hue-b1{background:linear-gradient(135deg,#843c00,#ED7D31)}
+.chart-area{padding:8px 10px 6px;position:relative;height:220px}
+.tgt-note{font-size:9px;color:#6b7280;text-align:right;margin-top:2px}
+
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:11px}
+th{background:var(--navy);color:#fff;padding:5px 6px;white-space:nowrap;border:1px solid #BDD7EE;text-align:center;font-size:10px}
+td{padding:4px 6px;border:1px solid #e5e7eb;text-align:center;white-space:nowrap}
+tr:hover td{background:#f0f7ff}
+.td-site{background:#EBF3FB;font-weight:700;color:var(--navy)}
+.td-sub{background:#DDE8F0;font-weight:700;color:var(--navy)}
+.td-total{background:var(--navy);color:#fff;font-weight:700}
+.u-hi{background:#e6f4ea!important;color:#2e7d32;font-weight:700}
+.u-lo{background:#fdecea!important;color:#c62828;font-weight:700}
+.u-na{color:#ccc}
+.today-col{background:#FFF9E0!important}
+span.ok-b{background:#e6f4ea;color:#2e7d32;border-radius:8px;padding:1px 6px;font-size:9px;font-weight:700}
+span.ng-b{background:#fdecea;color:#c62828;border-radius:8px;padding:1px 6px;font-size:9px;font-weight:700}
+span.na-b{background:#f5f5f5;color:#bbb;border-radius:8px;padding:1px 6px;font-size:9px}
+
+#loading{position:fixed;inset:0;background:rgba(31,56,100,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;color:#fff}
+#loading h2{font-size:18px;margin-bottom:8px}
+#loading p{font-size:12px;opacity:.8}
+#loading .spinner{width:40px;height:40px;border:4px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:16px}
+#loading.hide{display:none}
+
+.bottom{text-align:center;padding:5px;font-size:9px;color:#bbb;background:#fff;border-top:1px solid #e5e7eb}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <h2>Google Sheets 연결 중...</h2>
+  <p>측정이력 데이터를 실시간으로 불러오는 중입니다</p>
+</div>
+
+<div class="hdr">
+  <div>
+    <h1 id="hdr-title">⚙️ CMM 가동률 라이브 대시보드</h1>
+    <div class="sub" id="hdr-sub">서진시스템 반도체 품질부 | Google Sheets 실시간 연동</div>
+  </div>
+  <div class="hdr-right">
+    <div style="display:flex;gap:2px;background:rgba(255,255,255,.15);border-radius:5px;padding:3px;margin-right:10px">
+      <button id="lang-ko" onclick="setLang('ko')" style="padding:2px 8px;font-size:10px;border:none;cursor:pointer;border-radius:3px;background:#fff;color:var(--navy);font-weight:700">🇰🇷 한국어</button>
+      <button id="lang-vi" onclick="setLang('vi')" style="padding:2px 8px;font-size:10px;border:none;cursor:pointer;border-radius:3px;background:transparent;color:rgba(255,255,255,.7)">🇻🇳 Tiếng Việt</button>
+      <button id="lang-en" onclick="setLang('en')" style="padding:2px 8px;font-size:10px;border:none;cursor:pointer;border-radius:3px;background:transparent;color:rgba(255,255,255,.7)">🇺🇸 English</button>
+    </div>
+    <div class="tgt"><span data-i18n="tgt_label">목표</span> <strong>85%</strong> | <span data-i18n="tgt_note">교대 600분 기준</span></div>
+    <div id="cur-dt"></div>
+  </div>
+</div>
+
+<div class="status-bar">
+  <span class="dot dot-loading" id="status-dot"></span>
+  <span id="status-msg">데이터 로드 중...</span>
+  <span id="status-rows" style="margin-left:4px"></span>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
+    <span id="last-sync" style="color:#9ca3af"></span>
+    <span id="countdown" style="color:#9ca3af;font-size:10px"></span>
+    <button onclick="downloadDashboard()" id="download-btn" style="background:#70AD47;color:#fff;border:none;border-radius:4px;padding:4px 11px;font-size:11px;cursor:pointer;font-weight:700" title="현재 데이터를 HTML 파일로 저장하여 공유">⬇ 공유용 다운로드</button>
+    <button class="btn-reload" onclick="location.reload()" id="reload-btn">↻ 새로고침</button>
+  </div>
+</div>
+
+<div class="kpi-strip" id="kpi-row"></div>
+
+<div class="tabs">
+  <div class="tab on"  onclick="sw('t0',this)" data-i18n="tab0">📊 사이트별 현황</div>
+  <div class="tab"     onclick="sw('t1',this)" data-i18n="tab1">📅 최근 7일</div>
+  <div class="tab"     onclick="sw('t2',this)" data-i18n="tab2">🗓 월별 일별</div>
+  <div class="tab"     onclick="sw('t4',this);buildDayTable()" data-i18n="tab4">📋 일일 현황</div>
+  <div class="tab"     onclick="sw('t5',this);buildCurrentStatus()" data-i18n="tab5">🔴 실시간 현황</div>
+  <div class="tab"     onclick="sw('t3',this)" data-i18n="tab3">🔍 이력 조회</div>
+  <div class="tab"     onclick="sw('t6',this);buildProductTab()">📦 제품 분석</div>
+</div>
+
+<div class="pane on" id="t0">
+  <div class="donut-row" id="donut-row"></div>
+  <div class="week-wrap">
+    <h3>📈 최근 7일 사이트별 가동률 추이</h3>
+    <div class="week-line"><canvas id="weekLine"></canvas></div>
+    <div class="tgt-note">— — 목표 85%</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+    <div class="sec" style="margin:0">▌ 사이트별 장비 가동률 (주별)</div>
+    <button id="btn-prev-week" onclick="weekOffset--;buildSiteCharts()" style="background:var(--navy);color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer" data-i18n="prev_week">◀ 이전주</button>
+    <span id="week-badge" style="font-size:11px;font-weight:700;color:var(--navy)"></span>
+    <button onclick="weekOffset++;buildSiteCharts()" id="btn-next-week" style="background:var(--navy);color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer" data-i18n="next_week">다음주 ▶</button>
+    <div style="margin-left:auto;display:flex;border:1px solid #d1d5db;border-radius:5px;overflow:hidden">
+      <button id="btn-split" onclick="setBarMode('split')" style="padding:3px 10px;font-size:11px;border:none;cursor:pointer;background:var(--navy);color:#fff;font-weight:700" data-i18n="by_shift">교대별</button>
+      <button id="btn-avg"   onclick="setBarMode('avg')"   style="padding:3px 10px;font-size:11px;border:none;cursor:pointer;background:#e5e7eb;color:#374151" data-i18n="avg">평균</button>
+    </div>
+  </div>
+  <div class="site-grid" id="site-grid"></div>
+</div>
+
+<div class="pane" id="t1">
+  <div class="sec">▌ 최근 7일 가동률 <span class="badge" id="week-range"></span>
+    <span style="margin-left:auto;font-size:9px;opacity:.8">입력없는 날 가동일수 제외</span>
+  </div>
+  <div class="tbl-wrap" id="week-tbl"></div>
+</div>
+
+<div class="pane" id="t2">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+    <div class="sec" style="margin:0">▌ 월별 일별 가동률</div>
+    <select id="sel-year" style="font-size:11px;padding:3px 6px;border:1px solid #BDD7EE;border-radius:4px"></select>
+    <select id="sel-month" style="font-size:11px;padding:3px 6px;border:1px solid #BDD7EE;border-radius:4px"></select>
+    <span style="font-size:9px;color:#6b7280">※ 입력없는 날(고장·공휴일) 가동일수 제외</span>
+  </div>
+  <div class="tbl-wrap" id="daily-tbl"></div>
+</div>
+
+<div class="pane" id="t4">
+  <!-- 컨트롤 바 -->
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+    <div class="sec" style="margin:0">▌ 장비별 일일 가동률 현황</div>
+    <input type="date" id="sel-day" style="font-size:11px;padding:3px 6px;border:1px solid #BDD7EE;border-radius:4px" onchange="buildDayTable()">
+    <button onclick="shiftDay(-1)" style="background:var(--navy);color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer" data-i18n="prev_day">◀ 전일</button>
+    <button onclick="shiftDay(1)"  style="background:var(--navy);color:#fff;border:none;border-radius:4px;padding:3px 9px;font-size:11px;cursor:pointer" data-i18n="next_day">익일 ▶</button>
+    <span id="day-range" style="font-size:11px;font-weight:700;color:var(--navy)"></span>
+  </div>
+  <!-- 사이트 KPI 카드 -->
+  <div id="day-kpi" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:0 0 8px"></div>
+  <!-- 가로 막대 차트 -->
+  <div style="background:#fff;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.07);padding:12px 14px;margin-bottom:8px">
+    <div style="font-size:11px;font-weight:700;color:var(--navy);margin-bottom:6px">📊 장비·교대별 당일 가동률 — — 목표 85%</div>
+    <div style="position:relative;height:420px"><canvas id="day-bar-chart"></canvas></div>
+  </div>
+  <!-- 상세 테이블 -->
+  <div class="tbl-wrap" id="day-tbl"></div>
+</div>
+
+<div class="pane" id="t5">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+    <div class="sec" style="margin:0">▌ 실시간 검사 현황</div>
+    <input type="date" id="f5-date" style="font-size:11px;padding:3px 6px;border:1px solid #BDD7EE;border-radius:4px" onchange="buildCurrentStatus()">
+    <select id="f5-shift" onchange="buildCurrentStatus()" style="font-size:11px;padding:3px 6px;border:1px solid #BDD7EE;border-radius:4px">
+      <option value="">전체 교대</option>
+      <option value="주간(D)">주간(D)</option>
+      <option value="야간(N)">야간(N)</option>
+    </select>
+    <span id="cs-info" style="font-size:10px;color:#6b7280;margin-left:4px"></span>
+  </div>
+  <div id="cs-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px"></div>
+</div>
+
+<div class="pane" id="t3">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+    <div class="sec" style="margin:0">▌ 이력 조회</div>
+    <select id="f3-site" onchange="renderLog()" style="font-size:11px;padding:3px 6px;border:1px solid #BDD7EE;border-radius:4px">
+      <option value="">전체 사이트</option><option>Hưng Yên</option><option>B8</option><option>B1</option>
+    </select>
+    <select id="f3-mach" onchange="renderLog()" style="font-size:11px;padding:3px 6px;border:1px solid #BDD7EE;border-radius:4px">
+      <option value="">전체 장비</option></select>
+    <select id="f3-shift" onchange="renderLog()" style="font-size:11px;padding:3px 6px;border:1px solid #BDD7EE;border-radius:4px">
+      <option value="">전체 교대</option>
+      <option value="주간(D)">주간(D)</option><option value="야간(N)">야간(N)</option>
+    </select>
+    <input type="month" id="f3-month" onchange="renderLog()" style="font-size:11px;padding:3px 6px;border:1px solid #BDD7EE;border-radius:4px">
+    <span id="log-count" style="font-size:10px;color:#6b7280"></span>
+  </div>
+  <div class="tbl-wrap" id="log-tbl"></div>
+</div>
+
+<div class="pane" id="t6">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+    <div class="sec" style="margin:0">▌ 제품별 검사 실적 분석</div>
+    <select id="pf-site" onchange="buildProductTab()" style="font-size:11px;padding:3px 6px;border:1px solid #BDD7EE;border-radius:4px">
+      <option value="">전체 사이트</option><option>Hưng Yên</option><option>B8</option><option>B1</option>
+    </select>
+    <input id="pf-search" placeholder="품번 검색..." oninput="buildProductTab()" style="font-size:11px;padding:3px 8px;border:1px solid #BDD7EE;border-radius:4px;width:140px">
+    <select id="pf-sort" onchange="buildProductTab()" style="font-size:11px;padding:3px 6px;border:1px solid #BDD7EE;border-radius:4px">
+      <option value="qty">수량 많은순</option>
+      <option value="ct">사이클타임 긴순</option>
+      <option value="part">품번순</option>
+    </select>
+    <span style="font-size:9px;color:#6b7280;margin-left:auto">사이클타임 = 가동분 ÷ 검사수량 | 전체 이력 기준</span>
+  </div>
+  <div id="prod-kpi" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px"></div>
+  <div class="tbl-wrap" id="prod-tab-body" style="max-height:640px;overflow-y:auto"></div>
+</div>
+
+<div class="bottom">Google Sheets 실시간 연동 | CMM_가동률_v6_수정 | 서진시스템 반도체 품질부</div>
+
+<script>
+const FILE_ID = '1V-ZVe6KnO4mvzk0OqAyoj2P1t5jUHmjHiOIWtvirTLY';
+const API_KEY = 'AIzaSyC-uNz9MjwM8KfmclAezso6T3_1FNuS6_M';
+const LOG_RANGE = "'측정이력_Log_Nhật ký'!A4:Q50000";
+const TARGET = 0.85;
+const EFF = 600;
+
+// ── 다국어 ──
+let curLang='ko';
+const T={
+  ko:{
+    title:'⚙️ CMM 가동률 라이브 대시보드',
+    sub:'서진시스템 반도체 품질부 | Google Sheets 실시간 연동',
+    tgt_label:'목표', tgt_note:'교대 600분 기준',
+    reload:'↻ 새로고침',
+    tab0:'📊 사이트별 현황', tab1:'📅 최근 7일', tab2:'🗓 월별 일별',
+    tab4:'📋 일일 현황', tab5:'🔴 실시간 현황', tab3:'🔍 이력 조회',
+    kpi_target:'목표 가동률', kpi_target_sub:'교대 600분 기준',
+    kpi_week:'주간 평균', kpi_month:'당월 평균',
+    kpi_achieved:'주 달성 교대', kpi_achieved_sub:'이번주 기준',
+    kpi_total:'총 이력 건수', kpi_total_sub:'Google Sheets 실시간',
+    count_unit:'건',
+    site_week_title:'사이트별 장비 가동률 (주별)',
+    prev_week:'◀ 이전주', next_week:'다음주 ▶',
+    by_shift:'교대별', avg:'평균',
+    site_chart_title:'사이트 주간 가동률',
+    trend_title:'📈 최근 7일 사이트별 가동률 추이',
+    tgt_line:'— — 목표 85%',
+    sec_week7:'최근 7일 가동률', excl_note:'입력없는 날 가동일수 제외',
+    sec_monthly:'월별 일별 가동률',
+    sec_daily:'장비별 일일 가동률 현황',
+    prev_day:'◀ 전일', next_day:'익일 ▶',
+    day_chart_label:'📊 장비·교대별 당일 가동률 — — 목표 85%',
+    sec_realtime:'실시간 검사 현황',
+    all_site:'전체 사이트', all_mach:'전체 장비', all_shift:'전체 교대',
+    sec_log:'이력 조회',
+    col_site:'사이트', col_mach:'장비명', col_shift:'교대',
+    col_total_min:'주합계(분)', col_rate:'주가동률', col_ach:'달성',
+    col_run_min:'가동(분)', col_util:'가동률',
+    col_subtotal:'소계', col_grand:'전체',
+    col_date:'날짜', col_op:'작업자', col_wo:'WO No.', col_part:'Part No.',
+    col_qty:'수량', col_start:'시작', col_end:'종료', col_reason:'비가동사유',
+    col_status:'상태', col_part2:'품번', col_time:'시간',
+    running:'가동중', stopped:'미가동',
+    ach:'✅달성', below:'⚠️미달',
+    no_data:'데이터 없음', no_date_data:'해당 날짜의 데이터가 없습니다',
+    no_log:'해당 조건의 이력이 없습니다.',
+    inspection:'검사 현황',
+    dow:['일','월','화','수','목','금','토'],
+    loading:'Google Sheets 연결 중...',
+    loading_sub:'측정이력 데이터를 실시간으로 불러오는 중입니다',
+    status_loading:'데이터 로드 중...',
+    sync_label:'동기화:',
+  },
+  vi:{
+    title:'⚙️ CMM Dashboard Tỷ lệ vận hành',
+    sub:'Bộ phận QA Seojin System | Kết nối Google Sheets',
+    tgt_label:'Mục tiêu', tgt_note:'Ca 600 phút chuẩn',
+    reload:'↻ Làm mới',
+    tab0:'📊 Trạng thái site', tab1:'📅 7 ngày gần', tab2:'🗓 Theo tháng',
+    tab4:'📋 Ngày hiện tại', tab5:'🔴 Thực tế', tab3:'🔍 Lịch sử',
+    kpi_target:'Mục tiêu', kpi_target_sub:'Ca 600 phút chuẩn',
+    kpi_week:'TB tuần', kpi_month:'TB tháng',
+    kpi_achieved:'Ca đạt MT', kpi_achieved_sub:'Tuần này',
+    kpi_total:'Tổng lịch sử', kpi_total_sub:'Google Sheets trực tiếp',
+    count_unit:'',
+    site_week_title:'Tỷ lệ vận hành thiết bị theo tuần',
+    prev_week:'◀ Tuần trước', next_week:'Tuần sau ▶',
+    by_shift:'Theo ca', avg:'TB',
+    site_chart_title:'Tỷ lệ vận hành site',
+    trend_title:'📈 Xu hướng 7 ngày gần đây',
+    tgt_line:'— — Mục tiêu 85%',
+    sec_week7:'Tỷ lệ vận hành 7 ngày', excl_note:'Loại trừ ngày không có dữ liệu',
+    sec_monthly:'Tỷ lệ vận hành theo tháng/ngày',
+    sec_daily:'Tỷ lệ vận hành thiết bị ngày',
+    prev_day:'◀ Hôm trước', next_day:'Hôm sau ▶',
+    day_chart_label:'📊 Tỷ lệ vận hành theo thiết bị & ca — — MT 85%',
+    sec_realtime:'Trạng thái kiểm tra thực tế',
+    all_site:'Tất cả site', all_mach:'Tất cả thiết bị', all_shift:'Tất cả ca',
+    sec_log:'Xem lịch sử',
+    col_site:'Site', col_mach:'Thiết bị', col_shift:'Ca',
+    col_total_min:'Tổng(phút)', col_rate:'Tỷ lệ tuần', col_ach:'Kết quả',
+    col_run_min:'Vận hành(ph)', col_util:'Tỷ lệ',
+    col_subtotal:'Tổng site', col_grand:'Tổng cộng',
+    col_date:'Ngày', col_op:'Người vận hành', col_wo:'WO No.', col_part:'Part No.',
+    col_qty:'SL', col_start:'Bắt đầu', col_end:'Kết thúc', col_reason:'Lý do dừng',
+    col_status:'Trạng thái', col_part2:'Mã sản phẩm', col_time:'Thời gian',
+    running:'Đang chạy', stopped:'Dừng',
+    ach:'✅Đạt', below:'⚠️Chưa đạt',
+    no_data:'Không có dữ liệu', no_date_data:'Không có dữ liệu cho ngày này',
+    no_log:'Không tìm thấy lịch sử.',
+    inspection:'Trạng thái kiểm tra',
+    dow:['CN','T2','T3','T4','T5','T6','T7'],
+    loading:'Đang kết nối Google Sheets...',
+    loading_sub:'Đang tải dữ liệu lịch sử đo lường',
+    status_loading:'Đang tải dữ liệu...',
+    sync_label:'Đồng bộ:',
+  },
+  en:{
+    title:'⚙️ CMM Utilization Live Dashboard',
+    sub:'Seojin System QA Dept | Google Sheets Real-time',
+    tgt_label:'Target', tgt_note:'600 min/shift basis',
+    reload:'↻ Refresh',
+    tab0:'📊 Site Overview', tab1:'📅 Last 7 Days', tab2:'🗓 Monthly',
+    tab4:'📋 Daily', tab5:'🔴 Live Status', tab3:'🔍 History',
+    kpi_target:'Target Rate', kpi_target_sub:'600 min/shift basis',
+    kpi_week:'Weekly Avg', kpi_month:'Monthly Avg',
+    kpi_achieved:'Shifts Achieved', kpi_achieved_sub:'This week',
+    kpi_total:'Total Records', kpi_total_sub:'Google Sheets live',
+    count_unit:'',
+    site_week_title:'Machine Utilization by Week',
+    prev_week:'◀ Prev Week', next_week:'Next Week ▶',
+    by_shift:'By Shift', avg:'Average',
+    site_chart_title:'Site Weekly Utilization',
+    trend_title:'📈 7-Day Site Utilization Trend',
+    tgt_line:'— — Target 85%',
+    sec_week7:'Last 7 Days Utilization', excl_note:'Days with no input excluded',
+    sec_monthly:'Monthly / Daily Utilization',
+    sec_daily:'Daily Machine Utilization',
+    prev_day:'◀ Prev Day', next_day:'Next Day ▶',
+    day_chart_label:'📊 Machine & Shift Daily Utilization — — Target 85%',
+    sec_realtime:'Live Inspection Status',
+    all_site:'All Sites', all_mach:'All Machines', all_shift:'All Shifts',
+    sec_log:'History Search',
+    col_site:'Site', col_mach:'Machine', col_shift:'Shift',
+    col_total_min:'Week Total(min)', col_rate:'Week Rate', col_ach:'Result',
+    col_run_min:'Run(min)', col_util:'Util.%',
+    col_subtotal:'Subtotal', col_grand:'Grand Total',
+    col_date:'Date', col_op:'Operator', col_wo:'WO No.', col_part:'Part No.',
+    col_qty:'Qty', col_start:'Start', col_end:'End', col_reason:'Downtime Reason',
+    col_status:'Status', col_part2:'Part No.', col_time:'Time',
+    running:'Running', stopped:'Idle',
+    ach:'✅Met', below:'⚠️Below',
+    no_data:'No data', no_date_data:'No data for this date',
+    no_log:'No records found.',
+    inspection:'Inspection Status',
+    dow:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],
+    loading:'Connecting to Google Sheets...',
+    loading_sub:'Loading CMM measurement history data',
+    status_loading:'Loading data...',
+    sync_label:'Synced:',
+  }
+};
+function t(k){ return T[curLang][k]||T['ko'][k]||k; }
+function setLang(l){
+  curLang=l;
+  ['ko','vi','en'].forEach(x=>{
+    const btn=document.getElementById('lang-'+x);
+    if(btn) btn.style.cssText='padding:2px 8px;font-size:10px;border:none;cursor:pointer;border-radius:3px;'+(l===x?'background:#fff;color:var(--navy);font-weight:700':'background:transparent;color:rgba(255,255,255,.7)');
+  });
+  // 정적 요소 업데이트
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    el.textContent=t(el.dataset.i18n);
+  });
+  document.getElementById('hdr-title').textContent=t('title');
+  document.getElementById('hdr-sub').textContent=t('sub');
+  document.getElementById('reload-btn').textContent=t('reload');
+  // 필터 옵션 업데이트
+  const f3site=document.getElementById('f3-site');
+  if(f3site) f3site.options[0].text=t('all_site');
+  const f3mach=document.getElementById('f3-mach');
+  if(f3mach) f3mach.options[0].text=t('all_mach');
+  ['f3-shift','f5-shift'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.options[0].text=t('all_shift');
+  });
+  // 동적 재렌더
+  if(document.getElementById('kpi-row').children.length) buildKPI();
+  const activeTab=document.querySelector('.pane.on');
+  if(activeTab){
+    const id=activeTab.id;
+    if(id==='t0') buildSiteCharts();
+    else if(id==='t1') buildWeekTable();
+    else if(id==='t2') buildMonthTable();
+    else if(id==='t4') buildDayTable();
+    else if(id==='t5') buildCurrentStatus();
+    else if(id==='t3') renderLog();
+    else if(id==='t6') buildProductTab();
+  }
+}
+
+const MLIST = [
+  {site:'Hưng Yên', m:'Global Advantage', full:'Hưng Yên-Global Advantage', size:'대형'},
+  {site:'Hưng Yên', m:'Glory 1',          full:'Hưng Yên-Glory 1',          size:'중형'},
+  {site:'Hưng Yên', m:'Glory 2',          full:'Hưng Yên-Glory 2',          size:'중형'},
+  {site:'Hưng Yên', m:'Glory 3',          full:'Hưng Yên-Glory 3',          size:'소형'},
+  {site:'Hưng Yên', m:'Glory 4',          full:'Hưng Yên-Glory 4',          size:'소형'},
+  {site:'B8',   m:'Global Advantage', full:'B8-Global Advantage', size:'대형'},
+  {site:'B8',   m:'Advantage',        full:'B8-Advantage',        size:'중형'},
+  {site:'B8',   m:'Croma',            full:'B8-Croma',            size:'소형'},
+  {site:'B1',   m:'Advantage 1',      full:'B1-Advantage 1',      size:'중형'},
+  {site:'B1',   m:'Advantage 2',      full:'B1-Advantage 2',      size:'중형'},
+  {site:'B1',   m:'Glory 1',          full:'B1-Glory 1',          size:'중형'},
+  {site:'B1',   m:'CLASSIC',          full:'B1-CLASSIC',          size:'소형'},
+  {site:'B1',   m:'Croma',            full:'B1-Croma',            size:'소형'},
+];
+// 사이즈 뱃지 스타일
+const SIZE_BADGE={
+  '대형':'background:#1e3a5f;color:#fff',
+  '중형':'background:#1d6b3e;color:#fff',
+  '소형':'background:#6b7280;color:#fff',
+};
+function sizeBadge(s){ return `<span style="${SIZE_BADGE[s]||''};border-radius:3px;padding:1px 5px;font-size:8px;font-weight:700;margin-right:4px">${s}</span>`; }
+function machLabel(m){ const info=MLIST.find(x=>x.m===m||(x.full&&x.full.endsWith('-'+m))); return info?sizeBadge(info.size)+m:m; }
+function machLabelByFull(full){ const info=MLIST.find(x=>x.full===full); return info?sizeBadge(info.size)+info.m:full; }
+const SHIFTS = ['주간(D)','야간(N)'];
+const SITES  = ['Hưng Yên','B8','B1'];
+const ROWS   = [];
+MLIST.forEach(m => SHIFTS.forEach(s => ROWS.push({...m, shift:s})));
+
+const SITE_CLR = {'Hưng Yên':'#2E75B6','B8':'#70AD47','B1':'#ED7D31'};
+const SITE_HUE = {'Hưng Yên':'hue-hy','B8':'hue-b8','B1':'hue-b1'};
+
+let logs = [];
+const CHARTS = {};
+const today = new Date();
+const Y0 = today.getFullYear(), M0 = today.getMonth()+1;
+let weekOffset = 0;
+
+function getWeekRange(offset){
+  // 목요일~수요일 기준 주차 (목=4)
+  const base = new Date(today);
+  base.setDate(today.getDate() + (offset||0)*7);
+  const day = base.getDay(); // 0=일,1=월,...,4=목,...,6=토
+  const daysToThu = (day + 3) % 7; // 이번 주 목요일까지의 차이
+  const thu = new Date(base);
+  thu.setDate(base.getDate() - daysToThu);
+  const wed = new Date(thu);
+  wed.setDate(thu.getDate()+6);
+  return {from: fd(thu), to: fd(wed)};
+}
+
+function fd(d){ return d.toISOString().split('T')[0] }
+function dim(y,m){ return new Date(y,m,0).getDate() }
+function dow(d){ return t('dow')[new Date(d).getDay()] }
+function p(v,dec=1){ return v===null?'—':(v*100).toFixed(dec)+'%' }
+function badge(v){
+  if(v===null) return `<span class="na-b">${t('stopped')}</span>`;
+  return v>=TARGET?`<span class="ok-b">${t('ach')}</span>`:`<span class="ng-b">${t('below')}</span>`;
+}
+
+function calcUtil(ents){
+  if(!ents.length) return {min:0,days:0,rate:null};
+  const byDate={};
+  ents.forEach(e=>{ if((e.run_min||0)>0) byDate[e.date]=(byDate[e.date]||0)+e.run_min; });
+  const dates=Object.keys(byDate);
+  if(!dates.length) return {min:0,days:0,rate:null};
+  const total=dates.reduce((a,d)=>a+byDate[d],0);
+  return {min:total, days:dates.length, rate:total/(dates.length*EFF)};
+}
+
+// 사이트 가동률: 교대별 가동률 평균 (미가동 제외), days = 가동 교대 슬롯 수
+function calcSiteUtil(site, from, to){
+  const machines = MLIST.filter(m=>m.site===site);
+  let rateSum=0, count=0, totalMin=0;
+  machines.forEach(m=>{
+    SHIFTS.forEach(sh=>{
+      const runEnts = filt({full:m.full, shift:sh, from, to}).filter(e=>(e.run_min||0)>0);
+      if(!runEnts.length) return; // 미가동 제외
+      const workDays = new Set(runEnts.map(e=>e.date)).size;
+      const mins = runEnts.reduce((a,e)=>a+(e.run_min||0),0);
+      rateSum += mins/(workDays*EFF);
+      count++;
+      totalMin += mins;
+    });
+  });
+  if(!count) return {rate:null, days:0, min:totalMin};
+  return {rate: rateSum/count, days:count, min:totalMin};
+}
+
+// 전체 가동률: 전 교대별 가동률 평균 (미가동 제외)
+function calcGrandUtil(from, to){
+  let rateSum=0, count=0, totalMin=0;
+  MLIST.forEach(m=>{
+    SHIFTS.forEach(sh=>{
+      const runEnts = filt({full:m.full, shift:sh, from, to}).filter(e=>(e.run_min||0)>0);
+      if(!runEnts.length) return; // 미가동 제외
+      const workDays = new Set(runEnts.map(e=>e.date)).size;
+      const mins = runEnts.reduce((a,e)=>a+(e.run_min||0),0);
+      rateSum += mins/(workDays*EFF);
+      count++;
+      totalMin += mins;
+    });
+  });
+  if(!count) return {rate:null, days:0, min:totalMin};
+  return {rate: rateSum/count, days:count, min:totalMin};
+}
+
+function filt({site,full,shift,from,to,year,month}={}){
+  return logs.filter(e=>{
+    if(site  && e.site!==site)         return false;
+    if(full  && e.machine_full!==full) return false;
+    if(shift && e.shift!==shift)       return false;
+    if(from  && e.date<from)           return false;
+    if(to    && e.date>to)             return false;
+    if(year  && new Date(e.date).getFullYear()!==year)   return false;
+    if(month && new Date(e.date).getMonth()+1!==month)   return false;
+    return true;
+  });
+}
+
+function destroyChart(k){ if(CHARTS[k]){CHARTS[k].destroy();delete CHARTS[k]} }
+
+// 다양한 날짜 형식 → YYYY-MM-DD 정규화
+function parseDate(s){
+  s = (s||'').trim();
+  if(!s) return null;
+  // YYYY-MM-DD
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // YYYY. M. D. or YYYY.M.D
+  let m = s.match(/^(\d{4})[.\s]+(\d{1,2})[.\s]+(\d{1,2})\.?\s*$/);
+  if(m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  // M/D/YYYY or MM/DD/YYYY
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(m) return `${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;
+  // D/M/YYYY (유럽식)
+  m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if(m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  // Google Sheets 시리얼 숫자 (44000~50000 범위)
+  const n = parseInt(s);
+  if(!isNaN(n) && n>40000 && n<60000){
+    const d = new Date(Date.UTC(1899,11,30) + n*86400000);
+    return d.toISOString().slice(0,10);
+  }
+  return null;
+}
+
+function parseCSV(text){
+  const lines = text.replace(/\r/g,'').split('\n');
+  const result = [];
+  const SITES_ALLOWED = ['Hưng Yên','B8','B1'].map(s=>s.normalize('NFC'));
+  for(let i=0; i<lines.length; i++){
+    const cols = parseCSVLine(lines[i]);
+    if(cols.length < 5) continue;
+    // cols[1]을 먼저, 없으면 cols[0]도 시도
+    let date = parseDate(cols[1]);
+    let offset = 0;
+    if(!date){ date = parseDate(cols[0]); offset = -1; }
+    if(!date) continue;
+    const site = (cols[2+offset]||'').trim();
+    const mach = (cols[3+offset]||'').trim();
+    const shift= (cols[4+offset]||'').trim();
+    const runMin = parseInt((cols[11+offset]||'0').trim()) || 0;
+    // Unicode 정규화 후 비교 (Hưng Yên 분음부호 인코딩 차이 대응)
+    const siteN = site.normalize('NFC');
+    if(!SITES_ALLOWED.includes(siteN)) continue;
+    if(!mach || !shift) continue;
+    let shiftNorm = shift;
+    if(shift.includes('주간') || shift.includes('D)')) shiftNorm = '주간(D)';
+    else if(shift.includes('야간') || shift.includes('N)')) shiftNorm = '야간(N)';
+    const o=offset; // 컬럼 인덱스 오프셋 (0: 정상, -1: No.열 없음)
+    result.push({
+      date, site: siteN,
+      machine_full: mach,
+      shift: shiftNorm,
+      operator: (cols[5+o]||'').trim(),
+      wo: (cols[6+o]||'').trim(),
+      part: (cols[7+o]||'').trim(),
+      qty: parseInt(cols[8+o])||0,
+      start: (cols[9+o]||'').trim(),
+      end: (cols[10+o]||'').trim(),
+      run_min: runMin,
+      down_reason: (cols[12+o]||'').trim(),
+      remark: (cols[13+o]||'').trim(),
+      equip_status: (cols[14+o]||'').trim(),
+    });
+  }
+  return result;
+}
+
+// Google Sheets API(get_values)가 반환하는 2차원 배열(row arrays)을 logs 레코드로 변환
+// 컬럼 순서는 기존 CSV 파서와 동일: A=No,B=Date,C=Site,D=Machine,E=Shift,F=Operator,
+// G=고객사(wo로 사용),H=PartNo,I=Qty,J=Start,K=End,L=RunMin,M=DownReason,N=Remark
+function parseSheetRows(values){
+  const result = [];
+  const SITES_ALLOWED = ['Hưng Yên','B8','B1'].map(s=>s.normalize('NFC'));
+  for(const row of (values||[])){
+    if(!row || row.length < 5) continue;
+    const date = parseDate(row[1]);
+    if(!date) continue;
+    const site = (row[2]||'').toString().trim();
+    const mach = (row[3]||'').toString().trim();
+    const shift= (row[4]||'').toString().trim();
+    const runMin = parseInt((row[11]||'0').toString().trim()) || 0;
+    const siteN = site.normalize('NFC');
+    if(!SITES_ALLOWED.includes(siteN)) continue;
+    if(!mach || !shift) continue;
+    let shiftNorm = shift;
+    if(shift.includes('주간') || shift.includes('D)')) shiftNorm = '주간(D)';
+    else if(shift.includes('야간') || shift.includes('N)')) shiftNorm = '야간(N)';
+    result.push({
+      date, site: siteN,
+      machine_full: mach,
+      shift: shiftNorm,
+      operator: (row[5]||'').toString().trim(),
+      wo: (row[6]||'').toString().trim(),
+      part: (row[7]||'').toString().trim(),
+      qty: parseInt(row[8])||0,
+      start: (row[9]||'').toString().trim(),
+      end: (row[10]||'').toString().trim(),
+      run_min: runMin,
+      down_reason: (row[12]||'').toString().trim(),
+      remark: (row[13]||'').toString().trim(),
+      equip_status: (row[14]||'').toString().trim(),
+    });
+  }
+  return result;
+}
+
+function parseCSVLine(line){
+  const result=[];
+  let cur='', inQ=false;
+  for(let i=0;i<line.length;i++){
+    const c=line[i];
+    if(c==='"'){
+      if(inQ && line[i+1]==='"'){ cur+='"'; i++; }
+      else inQ=!inQ;
+    } else if(c===',' && !inQ){
+      result.push(cur); cur='';
+    } else cur+=c;
+  }
+  result.push(cur);
+  return result;
+}
+
+function downloadDashboard(){
+  // 현재 logs 데이터를 JSON으로 직렬화하여 HTML에 내장
+  const logsJson = JSON.stringify(logs);
+  const snapDate = new Date().toLocaleString('ko-KR');
+
+  // 현재 페이지 HTML 취득
+  let html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+
+  // 스크립트 최상단에 스냅샷 데이터 주입 (FILE_ID 상수 바로 뒤)
+  const injection = `\n// ── 스냅샷 데이터 (공유용, 다운로드 ${snapDate}) ──\nwindow.__SNAPSHOT_LOGS__ = ${logsJson};\nwindow.__SNAPSHOT_DATE__ = "${snapDate}";\n`;
+  html = html.replace("const FILE_ID =", injection + "const FILE_ID =");
+
+  const blob = new Blob([html], {type: 'text/html;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const d = new Date().toISOString().slice(0,10);
+  a.download = `CMM_가동률_대시보드_${d}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+
+async function loadData(){
+  const dot=document.getElementById('status-dot');
+  const msg=document.getElementById('status-msg');
+
+  // 스냅샷 데이터가 있으면 MCP 호출 없이 바로 렌더
+  if(window.__SNAPSHOT_LOGS__){
+    logs = window.__SNAPSHOT_LOGS__;
+    dot.className='dot dot-live';
+    msg.textContent=`📸 스냅샷 데이터 (${window.__SNAPSHOT_DATE__||''})`;
+    document.getElementById('status-rows').textContent=`| 이력 ${logs.length}건`;
+    document.getElementById('last-sync').textContent='';
+    document.getElementById('loading').classList.add('hide');
+    document.getElementById('reload-btn').style.display='none';
+    document.getElementById('download-btn').style.display='none';
+    renderAll();
+    return;
+  }
+
+  dot.className='dot dot-loading';
+  msg.textContent='Google Sheets에서 데이터 로드 중...';
+
+  try {
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${FILE_ID}/values/${encodeURIComponent(LOG_RANGE)}?key=${API_KEY}`;
+    const res = await fetch(url);
+    if(!res.ok){
+      const errJson = await res.json().catch(()=>({}));
+      throw new Error(errJson?.error?.message || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    if(!data || !Array.isArray(data.values)) throw new Error('데이터 없음 — 구글 시트 공개 설정을 확인하세요');
+
+    const parsed = parseSheetRows(data.values);
+    if(!parsed.length){
+      throw new Error(`데이터 없음(수신 ${data.values.length}행)`);
+    }
+
+    logs = parsed;
+
+    dot.className='dot dot-live';
+    msg.textContent='Google Sheets 실시간 연동 완료';
+    document.getElementById('status-rows').textContent = `| 이력 ${logs.length}건`;
+    document.getElementById('last-sync').textContent = `동기화: ${new Date().toLocaleTimeString('ko-KR')}`;
+    document.getElementById('loading').classList.add('hide');
+    renderAll();
+
+  } catch(err) {
+    dot.className='dot dot-err';
+    msg.textContent=`오류: ${err.message}`;
+    document.getElementById('loading').classList.add('hide');
+    document.getElementById('kpi-row').innerHTML=
+      `<div style="grid-column:span 5;padding:20px;text-align:center;color:#c00000;font-weight:700">
+        연결 실패: ${err.message}<br><small style="font-weight:normal;color:#666">↻ 새로고침 버튼을 클릭하세요.</small>
+      </div>`;
+  }
+}
+
+function decodeBase64(b64){
+  const s = b64.replace(/-/g,'+').replace(/_/g,'/');
+  try { return decodeURIComponent(escape(atob(s))); }
+  catch { return atob(s); }
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('cur-dt').textContent =
+    today.toLocaleDateString('ko-KR',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
+
+  const sy=document.getElementById('sel-year'), sm=document.getElementById('sel-month');
+  for(let y=Y0-1;y<=Y0+1;y++){
+    const o=document.createElement('option'); o.value=y; o.textContent=y+'년'; if(y===Y0)o.selected=true; sy.appendChild(o);
+  }
+  for(let m=1;m<=12;m++){
+    const o=document.createElement('option'); o.value=m; o.textContent=m+'월'; if(m===M0)o.selected=true; sm.appendChild(o);
+  }
+  sy.addEventListener('change',buildDailyTable);
+  sm.addEventListener('change',buildDailyTable);
+  document.getElementById('f3-month').value=`${Y0}-${String(M0).padStart(2,'0')}`;
+  const ms=document.getElementById('f3-mach');
+  MLIST.forEach(m=>{const o=document.createElement('option');o.value=m.full;o.textContent=m.full;ms.appendChild(o);});
+  restoreLastTab();
+  loadData();
+
+  // 10분마다 페이지 리로드 → MCP 새 세션으로 캐시 우회
+  let remain = 600;
+  const cdEl = document.getElementById('countdown');
+  setInterval(() => {
+    remain--;
+    const mm = Math.floor(remain/60), ss = remain%60;
+    cdEl.textContent = `| ${mm}:${String(ss).padStart(2,'0')} 후 자동갱신`;
+    if(remain <= 0) location.reload();
+  }, 1000);
+});
+
+function sw(id,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById(id).classList.add('on');
+  try{ localStorage.setItem('cmm_last_tab', id); }catch(e){}
+}
+
+// 자동 새로고침 후에도 마지막에 보던 탭을 복원
+function restoreLastTab(){
+  let id;
+  try{ id = localStorage.getItem('cmm_last_tab'); }catch(e){ return; }
+  if(!id) return;
+  const pane = document.getElementById(id);
+  if(!pane) return;
+  const tabIdx = ['t0','t1','t2','t4','t5','t3','t6'].indexOf(id);
+  const tabEls = document.querySelectorAll('.tab');
+  const tabEl = tabEls[tabIdx];
+  if(!tabEl) return;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
+  tabEl.classList.add('on');
+  pane.classList.add('on');
+}
+
+// ────────────────────────────────────────────────
+// 📦 제품 분석 탭
+// ────────────────────────────────────────────────
+function buildProductTab(){
+  const container = document.getElementById('prod-tab-body');
+  if(!container) return;
+
+  const siteFilter = document.getElementById('pf-site')?.value || '';
+  const search = (document.getElementById('pf-search')?.value || '').trim().toLowerCase();
+  const sortMode = document.getElementById('pf-sort')?.value || 'qty';
+
+  // 집계: { [site+'||'+part]: { site, part, qty:N, run_min:N, machCount:{} } }
+  const agg = {};
+  logs.forEach(e => {
+    if(!e.part || e.part==='' || e.part==='—') return;
+    if(e.qty <= 0 || e.run_min <= 0) return;
+    if(siteFilter && e.site !== siteFilter) return;
+    const key = e.site + '||' + e.part;
+    if(!agg[key]) agg[key] = {site:e.site, part:e.part, qty:0, run_min:0, machCount:{}};
+    const rec = agg[key];
+    rec.qty     += e.qty;
+    rec.run_min += e.run_min;
+    rec.machCount[e.machine_full] = (rec.machCount[e.machine_full]||0) + 1;
+  });
+
+  let rows = Object.values(agg);
+  if(search) rows = rows.filter(r => r.part.toLowerCase().includes(search));
+
+  rows.forEach(r => { r.ct = r.qty>0 ? r.run_min/r.qty : 0; });
+  if(sortMode==='qty')  rows.sort((a,b)=>b.qty-a.qty);
+  else if(sortMode==='ct') rows.sort((a,b)=>b.ct-a.ct);
+  else rows.sort((a,b)=>a.part.localeCompare(b.part));
+
+  // KPI 요약
+  const kpiEl = document.getElementById('prod-kpi');
+  const totalParts = new Set(rows.map(r=>r.part)).size;
+  const totalQty = rows.reduce((a,r)=>a+r.qty,0);
+  const avgCt = rows.length ? (rows.reduce((a,r)=>a+r.ct,0)/rows.length) : 0;
+  const maxCtRow = rows.slice().sort((a,b)=>b.ct-a.ct)[0];
+  if(kpiEl){
+    kpiEl.innerHTML = [
+      {lbl:'품번 수', val:totalParts+'개', clr:'#2E75B6'},
+      {lbl:'총 검사수량', val:totalQty.toLocaleString()+'개', clr:'#70AD47'},
+      {lbl:'평균 사이클타임', val:avgCt.toFixed(2)+'분/개', clr:'#ED7D31'},
+      {lbl:'최장 사이클타임 품번', val:maxCtRow?`${maxCtRow.part} (${maxCtRow.ct.toFixed(1)}분)`:'—', clr:'#C00000'},
+    ].map(k=>`<div style="background:#fff;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.07);padding:8px 10px;border-left:4px solid ${k.clr}">
+      <div style="font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase">${k.lbl}</div>
+      <div style="font-size:15px;font-weight:800;color:var(--navy);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${k.val}</div>
+    </div>`).join('');
+  }
+
+  if(!rows.length){
+    container.innerHTML = `<div style="padding:24px;font-size:11px;color:#9ca3af;text-align:center;background:#fff;border-radius:8px">조건에 맞는 품번 데이터가 없습니다</div>`;
+    return;
+  }
+
+  const SITE_CLR_MAP = {'Hưng Yên':'#1F3864','B8':'#1d6b3e','B1':'#c05000'};
+  const SITE_SHORT = {'Hưng Yên':'HY','B8':'B8','B1':'B1'};
+  const maxQty = Math.max(...rows.map(r=>r.qty));
+
+  let html = `<table style="width:100%;border-collapse:collapse;font-size:10px">
+    <thead style="position:sticky;top:0;z-index:1">
+      <tr style="background:var(--navy);color:#fff">
+        <th style="padding:6px 8px;text-align:left">사이트</th>
+        <th style="padding:6px 8px;text-align:left">품번/규격</th>
+        <th style="padding:6px 8px;text-align:left">검사수량</th>
+        <th style="padding:6px 8px;text-align:right">사이클타임(분/개)</th>
+        <th style="padding:6px 8px;text-align:left">주력 장비</th>
+        <th style="padding:6px 8px;text-align:right">투입횟수</th>
+      </tr>
+    </thead>
+    <tbody>`;
+
+  rows.forEach((r, idx) => {
+    let topMach='—', topCnt=0;
+    Object.entries(r.machCount).forEach(([m,c])=>{ if(c>topCnt){topMach=m;topCnt=c;} });
+    const machShort = topMach.replace('Hưng Yên-','').replace('Global Advantage','G.Adv').replace('Advantage','Adv');
+    const bg = idx%2===0?'#fff':'#f9fafb';
+    const barPct = maxQty>0 ? Math.round(r.qty/maxQty*100) : 0;
+    const clr = SITE_CLR_MAP[r.site]||'#374151';
+    html += `<tr style="background:${bg};border-bottom:1px solid #f3f4f6">
+      <td style="padding:5px 8px"><span style="background:${clr};color:#fff;border-radius:3px;padding:1px 6px;font-size:9px;font-weight:700">${SITE_SHORT[r.site]||r.site}</span></td>
+      <td style="padding:5px 8px;font-weight:600;color:#1f2937;white-space:nowrap">${r.part}</td>
+      <td style="padding:5px 8px;min-width:140px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <div style="background:#e5e7eb;border-radius:3px;flex:1;height:12px;overflow:hidden">
+            <div style="background:${clr};height:100%;width:${barPct}%"></div>
+          </div>
+          <span style="color:#1d4ed8;font-weight:700;min-width:44px;text-align:right">${r.qty.toLocaleString()}</span>
+        </div>
+      </td>
+      <td style="padding:5px 8px;text-align:right;color:#065f46;font-weight:700">${r.ct.toFixed(2)}</td>
+      <td style="padding:5px 8px;color:#374151;white-space:nowrap">${machShort}</td>
+      <td style="padding:5px 8px;text-align:right;color:#6b7280">${topCnt}회</td>
+    </tr>`;
+  });
+
+  html += `</tbody></table>`;
+  container.innerHTML = html;
+}
+
+function renderAll(){
+  buildKPI();
+  buildSiteCharts();
+  buildWeekTable();
+  buildDailyTable();
+  buildDayTable();
+  renderLog();
+}
+
+function buildKPI(){
+  const {from:wf, to:wt} = getWeekRange(weekOffset);
+  const wgu=calcGrandUtil(wf,wt);
+  const wAvg=wgu.rate;
+  const wRates=ROWS.map(r=>calcUtil(filt({full:r.full,shift:r.shift,from:wf,to:wt})).rate).filter(r=>r!==null);
+  const wAchieved=wRates.filter(r=>r>=TARGET).length;
+  const d1=`${Y0}-${String(M0).padStart(2,'0')}-01`;
+  const d2=`${Y0}-${String(M0).padStart(2,'0')}-${String(dim(Y0,M0)).padStart(2,'0')}`;
+  const mgu=calcGrandUtil(d1,d2);
+  const mAvg=mgu.rate;
+  document.getElementById('kpi-row').innerHTML=[
+    {lbl:t('kpi_target'), val:p(TARGET), sub:t('kpi_target_sub'), cls:''},
+    {lbl:t('kpi_week'), val:wAvg!==null?p(wAvg):'—', sub:`${wf.slice(5)}~${wt.slice(5)}`, cls:wAvg===null?'':wAvg>=TARGET?'g':'r'},
+    {lbl:t('kpi_month'), val:mAvg!==null?p(mAvg):'—', sub:`${Y0}년 ${M0}월`, cls:mAvg===null?'':mAvg>=TARGET?'g':'r'},
+    {lbl:t('kpi_achieved'), val:`${wAchieved}/${wRates.length}`, sub:t('kpi_achieved_sub'), cls:wAchieved===wRates.length&&wRates.length>0?'g':'a'},
+    {lbl:t('kpi_total'), val:logs.length.toLocaleString()+t('count_unit'), sub:t('kpi_total_sub'), cls:''},
+  ].map(c=>`<div class="kc ${c.cls}"><div class="lbl">${c.lbl}</div><div class="val">${c.val}</div><div class="sub2">${c.sub}</div></div>`).join('');
+}
+
+function buildSiteCharts(){
+  const {from:wf, to:wt} = getWeekRange(weekOffset);
+  document.getElementById('week-badge').textContent=`${wf.slice(5)}(목) ~ ${wt.slice(5)}(수)`;
+  const btnNext=document.getElementById('btn-next-week');
+  if(btnNext) btnNext.disabled = weekOffset>=0;
+  const dr=document.getElementById('donut-row');
+  dr.innerHTML='';
+  SITES.forEach(site=>{
+    const u=calcSiteUtil(site,wf,wt);
+    const rate=u.rate!==null?u.rate:0;
+    const pctVal=+(rate*100).toFixed(1);
+    const color=rate>=TARGET?'#70AD47':rate>0?'#ED7D31':'#bbb';
+    const id=`d-${site}`;
+    dr.insertAdjacentHTML('beforeend',`
+      <div class="dcard">
+        <h3>${site} ${t('site_chart_title')}</h3>
+        <div class="dring"><canvas id="${id}"></canvas>
+          <div class="dring-val"><span class="pct" style="color:${color}">${u.rate!==null?pctVal+'%':'—'}</span><span class="lbl">${t('col_util')}</span></div>
+        </div>
+        <div style="font-size:10px;color:${color};margin-top:4px;font-weight:700">${badge(u.rate)}</div>
+      </div>`);
+    requestAnimationFrame(()=>{
+      destroyChart(id);
+      const ctx=document.getElementById(id);
+      if(!ctx) return;
+      CHARTS[id]=new Chart(ctx.getContext('2d'),{type:'doughnut',
+        data:{datasets:[{data:[pctVal,Math.max(0,200-pctVal)],backgroundColor:[color,'#f0f4f8'],borderWidth:0,cutout:'72%'}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:false}}}});
+    });
+  });
+  buildWeekLine();
+  const sg=document.getElementById('site-grid');
+  sg.innerHTML='';
+  SITES.forEach(site=>{
+    const machines=MLIST.filter(m=>m.site===site);
+    const id=`bc-${site}`;
+    sg.insertAdjacentHTML('beforeend',`
+      <div class="site-card">
+        <div class="site-card-hdr ${SITE_HUE[site]}">
+          <div><h2>${site}</h2><div class="site-sub">${machines.length}대 × 2교대</div></div>
+          <div class="site-rate" id="sr-${site}">—</div>
+        </div>
+        <div class="chart-area"><canvas id="${id}"></canvas></div>
+      </div>`);
+    requestAnimationFrame(()=>buildSiteBar(site,machines,id));
+  });
+}
+
+function buildWeekLine(){
+  destroyChart('weekLine');
+  const days=[];
+  for(let i=6;i>=0;i--){ const d=new Date(today); d.setDate(today.getDate()-i); days.push(fd(d)); }
+  const labels=days.map(d=>d.slice(5)+`(${dow(d)})`);
+  const datasets=SITES.map(site=>({
+    label:site,
+    data:days.map(d=>{ const u=calcSiteUtil(site,d,d); return u.rate!==null?+(u.rate*100).toFixed(1):null; }),
+    borderColor:SITE_CLR[site],backgroundColor:SITE_CLR[site]+'22',
+    borderWidth:2.5,pointRadius:5,pointHoverRadius:7,tension:.3,spanGaps:true,fill:true
+  }));
+  datasets.push({label:'목표85%',data:Array(7).fill(85),
+    borderColor:'#C00000',borderWidth:1.5,borderDash:[6,4],pointRadius:0,tension:0,fill:false});
+  const ctx=document.getElementById('weekLine');
+  if(!ctx) return;
+  CHARTS['weekLine']=new Chart(ctx.getContext('2d'),{type:'line',data:{labels,datasets},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'right',labels:{font:{size:10},boxWidth:12,padding:8}}},
+      scales:{y:{min:0,max:200,ticks:{callback:v=>v+'%',font:{size:9}},grid:{color:'#e5e7eb'}},
+              x:{ticks:{font:{size:9}},grid:{color:'#f0f4f8'}}}}});
+}
+
+const barLabelPlugin={
+  id:'barLabels',
+  afterDatasetsDraw(chart){
+    const{ctx}=chart;
+    const horiz=chart.options.indexAxis==='y';
+    chart.data.datasets.forEach((ds,i)=>{
+      const meta=chart.getDatasetMeta(i);
+      if(meta.hidden) return;
+      meta.data.forEach((bar,idx)=>{
+        const v=ds.data[idx];
+        if(!v||v<=0) return;
+        ctx.save();
+        ctx.fillStyle='#333';
+        ctx.font='bold 9px sans-serif';
+        if(horiz){
+          ctx.textAlign='left';
+          ctx.textBaseline='middle';
+          ctx.fillText(v+'%',bar.x+3,bar.y);
+        } else {
+          ctx.textAlign='center';
+          ctx.textBaseline='bottom';
+          ctx.fillText(v+'%',bar.x,bar.y-3);
+        }
+        ctx.restore();
+      });
+    });
+  }
+};
+let barMode='split';
+function setBarMode(m){
+  barMode=m;
+  document.getElementById('btn-split').style.cssText='padding:3px 10px;font-size:11px;border:none;cursor:pointer;'+(m==='split'?'background:var(--navy);color:#fff;font-weight:700':'background:#e5e7eb;color:#374151');
+  document.getElementById('btn-avg').style.cssText='padding:3px 10px;font-size:11px;border:none;cursor:pointer;'+(m==='avg'?'background:var(--navy);color:#fff;font-weight:700':'background:#e5e7eb;color:#374151');
+  SITES.forEach(site=>buildSiteBar(site,MLIST.filter(x=>x.site===site),`bc-${site}`));
+}
+
+function buildSiteBar(site,machines,id){
+  destroyChart(id);
+  const {from:wf, to:wt} = getWeekRange(weekOffset);
+  const labels=[],dData=[],nData=[],avgData=[];
+  machines.forEach(m=>{
+    labels.push(`[${m.size}] ${m.m.replace('Advantage','Adv').replace('Global ','G.')}`);
+    const rates=[];
+    SHIFTS.forEach((sh,si)=>{
+      const u=calcUtil(filt({full:m.full,shift:sh,from:wf,to:wt}));
+      const v=u.rate!==null?+(u.rate*100).toFixed(1):0;
+      if(si===0) dData.push(v); else nData.push(v);
+      if(u.rate!==null) rates.push(u.rate*100);
+    });
+    avgData.push(rates.length?+(rates.reduce((a,b)=>a+b,0)/rates.length).toFixed(1):0);
+  });
+  const siteRate=calcSiteUtil(site,wf,wt).rate;
+  const sr=document.getElementById(`sr-${site}`);
+  if(sr) sr.textContent=siteRate!==null?p(siteRate):'—';
+  const ctx=document.getElementById(id);
+  if(!ctx) return;
+  const datasets=barMode==='avg'
+    ?[{label:'평균(주+야)',data:avgData,backgroundColor:'rgba(112,48,160,.8)',borderRadius:3,borderSkipped:false}]
+    :[{label:'주간(D)',data:dData,backgroundColor:'rgba(46,117,182,.8)',borderRadius:3,borderSkipped:false},
+      {label:'야간(N)',data:nData,backgroundColor:'rgba(112,173,71,.8)',borderRadius:3,borderSkipped:false}];
+  CHARTS[id]=new Chart(ctx.getContext('2d'),{type:'bar',plugins:[barLabelPlugin],
+    data:{labels,datasets},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{font:{size:9},boxWidth:10,padding:6}},
+        tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${c.raw}%`}}},
+      scales:{
+        y:{min:0,max:210,ticks:{callback:v=>v+'%',font:{size:9},stepSize:50},grid:{color:'#e5e7eb'},
+          afterDraw(chart){
+            const{ctx:c,chartArea,scales}=chart;
+            const y=scales.y.getPixelForValue(85);
+            c.save();c.setLineDash([5,4]);c.strokeStyle='#C00000';c.lineWidth=1.5;
+            c.beginPath();c.moveTo(chartArea.left,y);c.lineTo(chartArea.right,y);c.stroke();c.restore();
+          }},
+        x:{ticks:{font:{size:8}},grid:{display:false}}}}});
+}
+
+function buildWeekTable(){
+  const days=[];
+  for(let i=6;i>=0;i--){ const d=new Date(today); d.setDate(today.getDate()-i); days.push(fd(d)); }
+  document.getElementById('week-range').textContent=`${days[0].slice(5)} ~ ${days[6].slice(5)}`;
+  let th=`<tr><th rowspan="2">${t('col_site')}</th><th rowspan="2">${t('col_mach')}</th><th rowspan="2">${t('col_shift')}</th>`;
+  days.forEach(d=>{ th+=`<th>${d.slice(5)}<br><span style="font-size:8px;opacity:.7">${dow(d)}</span></th>`; });
+  th+=`<th>${t('col_total_min')}</th><th>${t('col_rate')}</th><th>${t('col_ach')}</th></tr>`;
+  let body='',prev='';
+  const siteAcc={};
+  ROWS.forEach((row,ri)=>{
+    if(row.site!==prev){
+      body+=`<tr><td colspan="${3+days.length+3}" class="td-site" style="font-size:10px;padding:3px 8px">▶ ${row.site}</td></tr>`;
+      siteAcc[row.site]={days:days.map(()=>0),total:0,rateSum:0,count:0,worked:new Set()};
+      prev=row.site;
+    }
+    const dm=days.map(d=>{
+      const mn=filt({full:row.full,shift:row.shift,from:d,to:d}).reduce((a,e)=>a+(e.run_min||0),0);
+      if(mn>0){siteAcc[row.site].days[days.indexOf(d)]+=mn;siteAcc[row.site].total+=mn;siteAcc[row.site].worked.add(d);}
+      return mn;
+    });
+    const wd=dm.filter(m=>m>0).length,tot=dm.reduce((a,b)=>a+b,0);
+    const rate=wd>0?tot/(wd*EFF):null;
+    // 가동률 평균 누적 (미가동 제외)
+    if(rate!==null){ siteAcc[row.site].rateSum+=rate; siteAcc[row.site].count++; }
+    const bg=ri%2===0?'#f8fbfe':'#fff';
+    body+=`<tr><td style="background:${bg};font-weight:700;color:var(--navy);font-size:9px">${row.site}</td><td style="text-align:left;background:${bg}">${sizeBadge(row.size)}${row.m}</td><td style="background:${bg}">${row.shift}</td>`;
+    dm.forEach((mn,i)=>{
+      const isT=days[i]===fd(today);
+      body+=`<td class="${isT?'today-col':''}" style="background:${isT?'#FFF9E0':bg}">${mn}</td>`;
+    });
+    const rc=rate===null?'u-na':rate>=TARGET?'u-hi':'u-lo';
+    body+=`<td class="${rc}">${tot}</td><td class="${rc}">${rate===null?'0.0%':p(rate)}</td><td>${badge(rate)}</td></tr>`;
+  });
+  SITES.forEach(site=>{
+    const sd=siteAcc[site]||{days:days.map(()=>0),total:0,rateSum:0,count:0,worked:new Set()};
+    const siteRate = sd.count>0 ? sd.rateSum/sd.count : null;
+    body+=`<tr><td colspan="3" class="td-sub">▶ ${site} ${t('col_subtotal')}</td>`;
+    sd.days.forEach(mn=>{ body+=`<td class="td-sub">${mn}</td>`; });
+    body+=`<td class="td-sub">${sd.total}</td><td class="td-sub">${siteRate===null?'0.0%':p(siteRate)}</td><td class="td-sub">${badge(siteRate)}</td></tr>`;
+  });
+  // 전체 합계: 가동률 평균 (전 교대 슬롯 평균)
+  const allTotal = SITES.reduce((a,s)=>a+(siteAcc[s]?.total||0),0);
+  const allRateSum = SITES.reduce((a,s)=>a+(siteAcc[s]?.rateSum||0),0);
+  const allCount = SITES.reduce((a,s)=>a+(siteAcc[s]?.count||0),0);
+  const grandRate = allCount>0 ? allRateSum/allCount : null;
+  body+=`<tr><td colspan="3" class="td-total">★ 전체</td>`;
+  days.forEach(d=>{ const mn=filt({from:d,to:d}).reduce((a,e)=>a+(e.run_min||0),0); body+=`<td class="td-total">${mn}</td>`; });
+  body+=`<td class="td-total">${allTotal}</td><td class="td-total">${grandRate===null?'0.0%':p(grandRate)}</td><td class="td-total">${badge(grandRate)}</td></tr>`;
+  document.getElementById('week-tbl').innerHTML=`<table><thead>${th}</thead><tbody>${body}</tbody></table>`;
+}
+
+function buildDailyTable(){
+  const y=+document.getElementById('sel-year').value;
+  const m=+document.getElementById('sel-month').value;
+  const d=dim(y,m);
+  let th=`<tr><th rowspan="2">${t('col_site')}</th><th rowspan="2">${t('col_mach')}</th><th rowspan="2">${t('col_shift')}</th>`;
+  for(let i=1;i<=d;i++){
+    const dt=new Date(y,m-1,i),dw=['일','월','화','수','목','금','토'][dt.getDay()];
+    const isT=(y===Y0&&m===M0&&i===today.getDate());
+    th+=`<th style="${isT?'background:#ED7D31;color:#fff':''}">${i}<br><span style="font-size:8px;opacity:.7">${dw}</span></th>`;
+  }
+  th+=`<th>${t('col_total_min').replace('주','월')}</th><th>${t('col_rate').replace('주','월')}</th></tr>`;
+  let body='',prev='';
+  const siteAcc={};
+  ROWS.forEach((row,ri)=>{
+    if(row.site!==prev){
+      body+=`<tr><td colspan="${3+d+3}" class="td-site" style="font-size:10px;padding:3px 8px">▶ ${row.site}</td></tr>`;
+      siteAcc[row.site]={days:Array(d).fill(0),total:0,worked:new Set()};
+      prev=row.site;
+    }
+    const dm=[];
+    for(let i=1;i<=d;i++){
+      const ds=`${y}-${String(m).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+      const mn=filt({full:row.full,shift:row.shift,from:ds,to:ds}).reduce((a,e)=>a+(e.run_min||0),0);
+      dm.push(mn);
+      siteAcc[row.site].days[i-1]+=mn;
+      if(mn>0){siteAcc[row.site].total+=mn;siteAcc[row.site].worked.add(ds);}
+    }
+    const wd=dm.filter(x=>x>0).length,tot=dm.reduce((a,b)=>a+b,0);
+    const rate=wd>0?tot/(wd*EFF):null;
+    const bg=ri%2===0?'#f8fbfe':'#fff';
+    body+=`<tr><td style="background:${bg};font-weight:700;color:var(--navy);font-size:9px">${row.site}</td><td style="text-align:left;background:${bg}">${sizeBadge(row.size)}${row.m}</td><td style="background:${bg}">${row.shift}</td>`;
+    dm.forEach((mn,i)=>{
+      const isT=(y===Y0&&m===M0&&(i+1)===today.getDate());
+      const cls=mn>0?(mn/EFF>=TARGET?'u-hi':'u-lo'):'';
+      body+=`<td class="${cls}" style="${isT?'background:#FFF9E0':''}">${mn||''}</td>`;
+    });
+    const rc=rate===null?'u-na':rate>=TARGET?'u-hi':'u-lo';
+    body+=`<td class="${rc}">${tot}</td><td class="${rc}">${rate===null?'0.0%':p(rate)}</td></tr>`;
+  });
+  const d1str=`${y}-${String(m).padStart(2,'0')}-01`;
+  const d2str=`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  SITES.forEach(site=>{
+    const sd=siteAcc[site]||{days:Array(d).fill(0),total:0,worked:new Set()};
+    const siteU=calcSiteUtil(site,d1str,d2str);
+    body+=`<tr><td colspan="3" class="td-sub">▶ ${site} ${t('col_subtotal')}</td>`;
+    sd.days.forEach(mn=>{ body+=`<td class="td-sub">${mn||''}</td>`; });
+    body+=`<td class="td-sub">${sd.total}</td><td class="td-sub">${siteU.rate===null?'0.0%':p(siteU.rate)}</td></tr>`;
+  });
+  const mgu=calcGrandUtil(d1str,d2str);
+  body+=`<tr><td colspan="3" class="td-total">★ 전체</td>`;
+  for(let i=1;i<=d;i++){
+    const ds=`${y}-${String(m).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+    const mn=filt({year:y,month:m,from:ds,to:ds}).reduce((a,e)=>a+(e.run_min||0),0);
+    body+=`<td class="td-total">${mn||''}</td>`;
+  }
+  body+=`<td class="td-total">${mgu.min}</td><td class="td-total">${mgu.rate===null?'0.0%':p(mgu.rate)}</td></tr>`;
+  document.getElementById('daily-tbl').innerHTML=`<table><thead>${th}</thead><tbody>${body}</tbody></table>`;
+}
+
+function shiftDay(delta){
+  const inp = document.getElementById('sel-day');
+  const base = inp.value ? new Date(inp.value) : new Date(today);
+  base.setDate(base.getDate() + delta);
+  inp.value = fd(base);
+  buildDayTable();
+}
+
+function buildDayTable(){
+  const inp = document.getElementById('sel-day');
+  if(!inp.value) inp.value = fd(today);
+  const d = inp.value;
+  const dw = ['일','월','화','수','목','금','토'][new Date(d).getDay()];
+  document.getElementById('day-range').textContent = `${d} (${dw})`;
+
+  // ── 데이터 수집 ──
+  let siteTot={}, siteRateSum={}, siteCount={};
+  SITES.forEach(s=>{ siteTot[s]=0; siteRateSum[s]=0; siteCount[s]=0; });
+  let grandTot=0, grandRateSum=0, grandCount=0;
+  const chartLabels=[], chartVals=[], chartColors=[];
+
+  ROWS.forEach(row=>{
+    const mn = filt({full:row.full, shift:row.shift, from:d, to:d}).reduce((a,e)=>a+(e.run_min||0),0);
+    const rate = mn>0 ? mn/EFF : null;
+    const siteShort = {'Hưng Yên':'HY','B8':'B8','B1':'B1'}[row.site] || row.site;
+    const label = `${siteShort} [${row.size}] ${row.m} ${row.shift==='주간(D)'?'(주)':'(야)'}`;
+    chartLabels.push(label);
+    chartVals.push(rate!==null ? +(rate*100).toFixed(1) : 0);
+    chartColors.push(rate===null?'rgba(180,180,180,.5)':rate>=TARGET?'rgba(112,173,71,.85)':'rgba(192,0,0,.8)');
+    if(rate!==null){ siteTot[row.site]+=mn; siteRateSum[row.site]+=rate; siteCount[row.site]++; grandTot+=mn; grandRateSum+=rate; grandCount++; }
+  });
+
+  // ── KPI 카드 ──
+  const kpiEl = document.getElementById('day-kpi');
+  const kpiData = [
+    ...SITES.map(s=>({ label:s, tot:siteTot[s], rs:siteRateSum[s], cnt:siteCount[s], clr:SITE_CLR[s] })),
+    { label:'전체', tot:grandTot, rs:grandRateSum, cnt:grandCount, clr:'#1F3864' }
+  ];
+  kpiEl.innerHTML = kpiData.map(k=>{
+    const r = k.cnt>0 ? k.rs/k.cnt : null;
+    const pct = r===null?'0.0%':(r*100).toFixed(1)+'%';
+    const st = r===null?'#bbb':r>=TARGET?'#70AD47':'#C00000';
+    return `<div style="background:#fff;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.07);padding:10px 12px;border-left:4px solid ${k.clr}">
+      <div style="font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase">${k.label}</div>
+      <div style="font-size:22px;font-weight:800;color:${st};line-height:1.1;margin-top:3px">${pct}</div>
+    </div>`;
+  }).join('');
+
+  // ── 가로 막대 차트 ──
+  destroyChart('dayBar');
+  const ctx = document.getElementById('day-bar-chart');
+  if(ctx){
+    CHARTS['dayBar'] = new Chart(ctx.getContext('2d'),{
+      type:'bar',plugins:[barLabelPlugin],
+      data:{
+        labels: chartLabels,
+        datasets:[{
+          label:'가동률(%)',
+          data: chartVals,
+          backgroundColor: chartColors,
+          borderRadius:4,
+          borderSkipped:false
+        }]
+      },
+      options:{
+        indexAxis:'y',
+        responsive:true,
+        maintainAspectRatio:false,
+        plugins:{
+          legend:{display:false},
+          tooltip:{callbacks:{label:c=>`${c.raw}%`}}
+        },
+        scales:{
+          x:{
+            min:0, max:160,
+            ticks:{callback:v=>v+'%', font:{size:9}},
+            grid:{color:'#e5e7eb'},
+            afterDraw(chart){
+              const{ctx:c,chartArea,scales}=chart;
+              const x=scales.x.getPixelForValue(85);
+              c.save();c.setLineDash([5,4]);c.strokeStyle='#C00000';c.lineWidth=2;
+              c.beginPath();c.moveTo(x,chartArea.top);c.lineTo(x,chartArea.bottom);c.stroke();
+              c.fillStyle='#C00000';c.font='bold 9px sans-serif';
+              c.fillText('85%',x+2,chartArea.top+10);c.restore();
+            }
+          },
+          y:{ticks:{font:{size:9}},grid:{display:false},afterFit(axis){axis.width=Math.max(axis.width,170);}}
+        }
+      }
+    });
+  }
+
+  // ── 상세 테이블 ──
+  const th=`<tr><th>${t('col_site')}</th><th>${t('col_mach')}</th><th>${t('col_shift')}</th><th>${t('col_run_min')}</th><th>${t('col_util')}</th><th>${t('col_ach')}</th></tr>`;
+  let body='', prev='';
+  ROWS.forEach((row,ri)=>{
+    const mn=filt({full:row.full,shift:row.shift,from:d,to:d}).reduce((a,e)=>a+(e.run_min||0),0);
+    const rate=mn>0?mn/EFF:null;
+    const bg=ri%2===0?'#f8fbfe':'#fff';
+    if(row.site!==prev){ body+=`<tr><td colspan="6" class="td-site" style="font-size:10px;padding:3px 8px">▶ ${row.site}</td></tr>`; prev=row.site; }
+    const rc=rate===null?'u-na':rate>=TARGET?'u-hi':'u-lo';
+    body+=`<tr>
+      <td style="background:${bg};font-weight:700;color:var(--navy);font-size:9px">${row.site}</td>
+      <td style="text-align:left;background:${bg}">${sizeBadge(row.size)}${row.m}</td>
+      <td style="background:${bg}">${row.shift}</td>
+      <td class="${rc}">${mn}</td>
+      <td class="${rc}">${rate===null?'0.0%':p(rate)}</td>
+      <td>${badge(rate)}</td>
+    </tr>`;
+  });
+  SITES.forEach(site=>{
+    const r=siteCount[site]>0?siteRateSum[site]/siteCount[site]:null;
+    body+=`<tr><td colspan="3" class="td-sub">▶ ${site} ${t('col_subtotal')}</td><td class="td-sub">${siteTot[site]}</td><td class="td-sub">${r===null?'0.0%':p(r)}</td><td class="td-sub">${badge(r)}</td></tr>`;
+  });
+  const gr=grandCount>0?grandRateSum/grandCount:null;
+  body+=`<tr><td colspan="3" class="td-total">★ 전체</td><td class="td-total">${grandTot}</td><td class="td-total">${gr===null?'0.0%':p(gr)}</td><td class="td-total">${badge(gr)}</td></tr>`;
+  document.getElementById('day-tbl').innerHTML=`<table><thead>${th}</thead><tbody>${body}</tbody></table>`;
+}
+
+function buildCurrentStatus(){
+  const dateEl=document.getElementById('f5-date');
+  const shiftEl=document.getElementById('f5-shift');
+  // 날짜 초기값: 오늘
+  if(!dateEl.value) dateEl.value=fd(today);
+  const selDate=dateEl.value;
+  const selShift=shiftEl.value;
+
+  // 해당 날짜+교대의 각 장비 최신 레코드 추출
+  const latest={};
+  logs.forEach(e=>{
+    if(e.date!==selDate) return;
+    if(selShift && e.shift!==selShift) return;
+    const key=e.machine_full+'||'+e.shift;
+    if(!latest[key] || e.start>latest[key].start) latest[key]=e;
+  });
+
+  const grid=document.getElementById('cs-grid');
+  const info=document.getElementById('cs-info');
+  const total=Object.keys(latest).length;
+  info.textContent=`${selDate} 기준 · ${total}건`;
+
+  if(!total){
+    grid.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:40px;color:#9ca3af;font-size:13px">해당 날짜의 데이터가 없습니다</div>`;
+    return;
+  }
+
+  // 사이트별로 그룹화하여 카드 렌더
+  grid.innerHTML='';
+  SITES.forEach(site=>{
+    const machines=MLIST.filter(m=>m.site===site);
+    let rows='';
+    machines.forEach(m=>{
+      SHIFTS.forEach(sh=>{
+        if(selShift && sh!==selShift) return;
+        const key=m.full+'||'+sh;
+        const e=latest[key];
+        const shiftBadge=sh==='주간(D)'
+          ?'<span style="background:#DBEAFE;color:#1d4ed8;border-radius:3px;padding:1px 6px;font-size:9px;font-weight:700">D</span>'
+          :'<span style="background:#DCFCE7;color:#166534;border-radius:3px;padding:1px 6px;font-size:9px;font-weight:700">N</span>';
+        if(!e){
+          rows+=`<tr style="border-bottom:1px solid #f3f4f6">
+            <td style="padding:5px 6px;font-size:10px;color:#374151">${sizeBadge(m.size)}${m.m.replace('Advantage','Adv').replace('Global ','G.')}</td>
+            <td style="padding:5px 6px">${shiftBadge}</td>
+            <td style="padding:5px 6px;font-size:10px;color:#d1d5db;font-style:italic" colspan="4">데이터 없음</td>
+          </tr>`;
+        } else {
+          const hasRun=e.run_min>0;
+          const statusClr=hasRun?'#166534':'#C00000';
+          const statusBg=hasRun?'#DCFCE7':'#FEE2E2';
+          const statusTxt=hasRun?t('running'):t('stopped');
+          const part=e.part||'—';
+          const wo=e.wo||'—';
+          const op=e.operator||'—';
+          const time=(e.start&&e.end)?`${e.start}~${e.end}`:(e.start||'—');
+          rows+=`<tr style="border-bottom:1px solid #f3f4f6">
+            <td style="padding:5px 6px;font-size:10px;font-weight:700;color:#1e3a5f">${sizeBadge(m.size)}${m.m.replace('Advantage','Adv').replace('Global ','G.')}</td>
+            <td style="padding:5px 6px">${shiftBadge}</td>
+            <td style="padding:5px 6px"><span style="background:${statusBg};color:${statusClr};border-radius:3px;padding:1px 7px;font-size:9px;font-weight:700">${statusTxt}</span></td>
+            <td style="padding:5px 6px;font-size:11px;font-weight:700;color:#374151">${part}</td>
+            <td style="padding:5px 6px;font-size:10px;color:#6b7280">${wo}</td>
+            <td style="padding:5px 6px;font-size:10px;color:#6b7280">${op}</td>
+            <td style="padding:5px 6px;font-size:10px;color:#9ca3af">${time}</td>
+          </tr>`;
+        }
+      });
+    });
+
+    const hue=SITE_HUE[site];
+    const hdrClr=site==='Hưng Yên'?'#1e3a5f':site==='B8'?'#1d6b3e':'#7c3f00';
+    grid.insertAdjacentHTML('beforeend',`
+      <div style="background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.08);overflow:hidden">
+        <div style="background:${hdrClr};color:#fff;padding:7px 12px;font-size:12px;font-weight:800">${site} — ${t('inspection')}</div>
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr style="background:#f8fafc">
+                <th style="padding:4px 6px;font-size:9px;color:#6b7280;font-weight:700;text-align:left;border-bottom:2px solid #e5e7eb">${t('col_mach')}</th>
+                <th style="padding:4px 6px;font-size:9px;color:#6b7280;font-weight:700;border-bottom:2px solid #e5e7eb">${t('col_shift')}</th>
+                <th style="padding:4px 6px;font-size:9px;color:#6b7280;font-weight:700;border-bottom:2px solid #e5e7eb">${t('col_status')}</th>
+                <th style="padding:4px 6px;font-size:9px;color:#6b7280;font-weight:700;text-align:left;border-bottom:2px solid #e5e7eb">${t('col_part2')}</th>
+                <th style="padding:4px 6px;font-size:9px;color:#6b7280;font-weight:700;text-align:left;border-bottom:2px solid #e5e7eb">WO</th>
+                <th style="padding:4px 6px;font-size:9px;color:#6b7280;font-weight:700;text-align:left;border-bottom:2px solid #e5e7eb">${t('col_op')}</th>
+                <th style="padding:4px 6px;font-size:9px;color:#6b7280;font-weight:700;text-align:left;border-bottom:2px solid #e5e7eb">${t('col_time')}</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`);
+  });
+}
+
+function renderLog(){
+  const site=document.getElementById('f3-site').value;
+  const mach=document.getElementById('f3-mach').value;
+  const shift=document.getElementById('f3-shift').value;
+  const mon=document.getElementById('f3-month').value;
+  let filtered=logs.filter(e=>{
+    if(site&&e.site!==site)return false;
+    if(mach&&e.machine_full!==mach)return false;
+    if(shift&&e.shift!==shift)return false;
+    if(mon&&e.date.slice(0,7)!==mon)return false;
+    return true;
+  }).slice().reverse();
+  document.getElementById('log-count').textContent=`${filtered.length}건`;
+  if(!filtered.length){
+    document.getElementById('log-tbl').innerHTML='<div style="color:#bbb;padding:10px;font-size:11px">해당 조건의 이력이 없습니다.</div>';return;
+  }
+  let html=`<table><tr>
+    <th>No.</th><th>${t('col_date')}</th><th>${t('col_site')}</th><th>${t('col_mach')}</th><th>${t('col_shift')}</th><th>${t('col_op')}</th><th>${t('col_wo')}</th><th>${t('col_part')}</th><th>${t('col_qty')}</th><th>${t('col_start')}</th><th>${t('col_end')}</th><th>${t('col_run_min')}</th><th>${t('col_util')}</th><th>${t('col_reason')}</th>
+  </tr>`;
+  filtered.forEach((e,i)=>{
+    const rc=e.run_min>0?(e.run_min/EFF>=TARGET?'u-hi':'u-lo'):'u-na';
+    html+=`<tr>
+      <td>${filtered.length-i}</td><td>${e.date}</td><td>${e.site}</td>
+      <td style="text-align:left">${e.machine_full}</td><td>${e.shift}</td>
+      <td>${e.operator||'—'}</td><td style="text-align:left">${e.wo||'—'}</td>
+      <td style="text-align:left">${e.part||'—'}</td><td>${e.qty||0}</td>
+      <td>${e.start||'—'}</td><td>${e.end||'—'}</td>
+      <td class="${rc}">${e.run_min}</td>
+      <td class="${rc}">${p(e.run_min/EFF)}</td>
+      <td style="text-align:left">${e.down_reason||''}</td>
+    </tr>`;
+  });
+  document.getElementById('log-tbl').innerHTML=html+'</table>';
+}
+</script>
+</body>
+</html>
