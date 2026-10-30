@@ -775,12 +775,13 @@ async function loadData(){
 
     logs = parsed;
 
-    // 스프레드시트 탭은 필터 없이 raw 전체 행 로드
+    // 날짜(B열)가 있는 행만 유효 데이터로 판단, 마지막 200행 로드
     const rawRows = data.values || [];
-    const MAX_ROWS = 300;
-    const slicedRaw = rawRows.slice(-MAX_ROWS);
-    const rawOffset = rawRows.length - slicedRaw.length;
-    hotData = slicedRaw.map((row, i) => ({
+    const validRaw = rawRows.map((row, i) => ({ row, origIdx: i }))
+      .filter(({ row }) => (row[1]||'').toString().trim() !== '');
+    const MAX_ROWS = 200;
+    const slicedValid = validRaw.slice(-MAX_ROWS);
+    hotData = slicedValid.map(({ row, origIdx }) => ({
       no:         (row[0]||'').toString().trim(),
       date:       (row[1]||'').toString().trim(),
       site:       (row[2]||'').toString().trim(),
@@ -796,8 +797,15 @@ async function loadData(){
       downReason: (row[12]||'').toString().trim(),
       remark:     (row[13]||'').toString().trim(),
       _new: false,
-      _sheetRow: rawOffset + i + 4,
+      _sheetRow: origIdx + 4,
     }));
+
+    // 마지막 데이터 다음 번호부터 빈 입력 행 5개 추가
+    let nextN = 1;
+    hotData.forEach(r => { const n = parseInt(r.no); if(!isNaN(n) && n >= nextN) nextN = n + 1; });
+    for(let k = 0; k < 5; k++){
+      hotData.push({ no: String(nextN + k), date: '', site: '', machine: '', shift: '주간(D)', operator: '', wo: '', part: '', qty: '', start: '', end: '', runMin: '', downReason: '', remark: '', _new: true, _sheetRow: null });
+    }
 
     dot.className='dot dot-live';
     msg.textContent='Google Sheets 실시간 연동 완료';
