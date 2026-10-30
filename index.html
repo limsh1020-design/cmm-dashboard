@@ -776,10 +776,30 @@ async function loadData(){
     }
 
     logs = parsed;
-    const MAX_ROWS = 200;
-    const sliced = parsed.slice(-MAX_ROWS);
-    const offset = parsed.length - sliced.length;
-    hotData = sliced.map((e,i)=>({ no:e.no, date:e.date, site:e.site, machine:e.machine_full, shift:e.shift, operator:e.operator, wo:e.wo, part:e.part, qty:e.qty||'', start:e.start, end:e.end, runMin:e.run_min||'', downReason:e.down_reason, remark:e.remark, _new:false, _sheetRow:offset+i+4 }));
+
+    // 스프레드시트 탭은 필터 없이 raw 전체 행 로드
+    const rawRows = data.values || [];
+    const MAX_ROWS = 300;
+    const slicedRaw = rawRows.slice(-MAX_ROWS);
+    const rawOffset = rawRows.length - slicedRaw.length;
+    hotData = slicedRaw.map((row, i) => ({
+      no:         (row[0]||'').toString().trim(),
+      date:       (row[1]||'').toString().trim(),
+      site:       (row[2]||'').toString().trim(),
+      machine:    (row[3]||'').toString().trim(),
+      shift:      (row[4]||'').toString().trim(),
+      operator:   (row[5]||'').toString().trim(),
+      wo:         (row[6]||'').toString().trim(),
+      part:       (row[7]||'').toString().trim(),
+      qty:        (row[8]||'').toString().trim(),
+      start:      (row[9]||'').toString().trim(),
+      end:        (row[10]||'').toString().trim(),
+      runMin:     (row[11]||'').toString().trim(),
+      downReason: (row[12]||'').toString().trim(),
+      remark:     (row[13]||'').toString().trim(),
+      _new: false,
+      _sheetRow: rawOffset + i + 4,
+    }));
 
     dot.className='dot dot-live';
     msg.textContent='Google Sheets 실시간 연동 완료';
