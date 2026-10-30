@@ -1623,7 +1623,9 @@ function initSpreadsheet(){
           }
         }
       },
-      { data:'downReason', width:115 },
+      { data:'downReason', type:'autocomplete', strict:false, width:155,
+        source:['장비고장/Hỏng thiết bị','PM/Bảo trì định kỳ','대기/Chờ đợi','셋업/Cài đặt','프로그래밍/Lập trình','측정오류/Lỗi đo','교육/Đào tạo','청소/Vệ sinh','재작업/Làm lại','기타/Khác']
+      },
       { data:'remark', width:95 },
     ],
     rowHeaders: true,
@@ -1631,7 +1633,30 @@ function initSpreadsheet(){
     stretchH: 'last',
     height: hotHeight,
     width: '100%',
-    contextMenu: true,
+    copyPaste: true,
+    contextMenu: {
+      items: {
+        'copy': { name: '복사 (Ctrl+C)' },
+        'cut': { name: '잘라내기 (Ctrl+X)' },
+        'hsep1': '---------',
+        'copyPrevRow': {
+          name: '⬆ 윗 행 값 복사 (Ctrl+D)',
+          callback(key, sel) {
+            const row = sel[0].start.row;
+            if(row === 0) return;
+            const prev = hot.getSourceDataAtRow(row - 1);
+            if(!prev) return;
+            ['date','site','machine','shift','operator','wo','part'].forEach(prop => {
+              hot.setDataAtRowProp(row, prop, prev[prop]||'', 'loadData');
+            });
+            dirtyRows.add(row);
+            hot.render();
+          }
+        },
+        'hsep2': '---------',
+        'remove_row': { name: '행 삭제' },
+      }
+    },
     manualColumnResize: true,
     afterChange(changes, source){
       if(source==='loadData'||source==='autoCalc') return;
@@ -1660,6 +1685,25 @@ function initSpreadsheet(){
       const cls = dirtyRows.has(row) ? 'dirty-row' : '';
       return cls ? { className: cls } : {};
     },
+  });
+
+  // Ctrl+D: 윗 행 값 복사
+  document.addEventListener('keydown', function hotCtrlD(e){
+    if(!hot) return;
+    if((e.ctrlKey||e.metaKey) && e.key==='d'){
+      const sel = hot.getSelectedLast();
+      if(!sel) return;
+      e.preventDefault();
+      const row = sel[0];
+      if(row === 0) return;
+      const prev = hot.getSourceDataAtRow(row - 1);
+      if(!prev) return;
+      ['date','site','machine','shift','operator','wo','part'].forEach(prop => {
+        hot.setDataAtRowProp(row, prop, prev[prop]||'', 'loadData');
+      });
+      dirtyRows.add(row);
+      hot.render();
+    }
   });
 
   // dirty row yellow highlight
