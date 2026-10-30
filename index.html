@@ -17,6 +17,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CMM 가동률 라이브 대시보드</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/handsontable/12.4.0/handsontable.full.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/handsontable/12.4.0/handsontable.full.min.js"></script>
 <style>
 :root{--blue:#2E75B6;--navy:#1F3864;--green:#70AD47;--orange:#ED7D31;--red:#C00000;--bg:#f0f4f8}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -102,6 +104,14 @@ span.na-b{background:#f5f5f5;color:#bbb;border-radius:8px;padding:1px 6px;font-s
 #loading.hide{display:none}
 
 .bottom{text-align:center;padding:5px;font-size:9px;color:#bbb;background:#fff;border-top:1px solid #e5e7eb}
+
+/* ── 스프레드시트 입력 ── */
+.hot-toolbar{display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.hot-btn{border:none;border-radius:4px;padding:5px 13px;font-size:11px;font-weight:700;cursor:pointer}
+.hot-btn-primary{background:var(--blue);color:#fff}.hot-btn-primary:hover{background:var(--navy)}
+.hot-btn-secondary{background:#f3f4f6;color:#374151;border:1px solid #d1d5db}.hot-btn-secondary:hover{background:#e5e7eb}
+.hot-btn-green{background:var(--green);color:#fff}.hot-btn-green:hover{background:#4a7c32}
+#sheet-status{font-size:11px;font-weight:700;color:#374151;margin-left:4px}
 </style>
 </head>
 <body>
@@ -150,6 +160,7 @@ span.na-b{background:#f5f5f5;color:#bbb;border-radius:8px;padding:1px 6px;font-s
   <div class="tab"     onclick="sw('t5',this);buildCurrentStatus()" data-i18n="tab5">🔴 실시간 현황</div>
   <div class="tab"     onclick="sw('t3',this)" data-i18n="tab3">🔍 이력 조회</div>
   <div class="tab"     onclick="sw('t6',this);buildProductTab()">📦 제품 분석</div>
+  <div class="tab"     onclick="sw('t8',this);setTimeout(initSpreadsheet,50)">✏️ 데이터 입력</div>
 </div>
 
 <div class="pane on" id="t0">
@@ -259,12 +270,25 @@ span.na-b{background:#f5f5f5;color:#bbb;border-radius:8px;padding:1px 6px;font-s
   <div class="tbl-wrap" id="prod-tab-body" style="max-height:640px;overflow-y:auto"></div>
 </div>
 
+<div class="pane" id="t8">
+  <div class="hot-toolbar">
+    <div class="sec" style="margin:0">▌ 측정이력 스프레드시트</div>
+    <button class="hot-btn hot-btn-secondary" onclick="addHotRow()">+ 행 추가</button>
+    <button class="hot-btn hot-btn-green" onclick="saveHotChanges()">💾 구글시트 저장</button>
+    <button class="hot-btn hot-btn-secondary" onclick="loadSheetData().then(refreshHot)">↻ 새로고침</button>
+    <span id="sheet-status"></span>
+    <span style="margin-left:auto;font-size:10px;color:#6b7280">💡 셀 클릭 후 바로 입력 가능 | 노란색 = 미저장 변경사항</span>
+  </div>
+  <div id="hot-container" style="height:calc(100vh - 195px);overflow:hidden;border:1px solid #BDD7EE;border-radius:4px"></div>
+</div>
+
 <div class="bottom">Google Sheets 실시간 연동 | CMM_가동률_v6_수정 | 서진시스템 반도체 품질부</div>
 
 <script>
 const FILE_ID = '1V-ZVe6KnO4mvzk0OqAyoj2P1t5jUHmjHiOIWtvirTLY';
 const API_KEY = 'AIzaSyC-uNz9MjwM8KfmclAezso6T3_1FNuS6_M';
 const LOG_RANGE = "'측정이력_Log_Nhật ký'!A4:Q50000";
+let APPS_SCRIPT_URL = localStorage.getItem('cmm_apps_script_url') || 'https://script.google.com/macros/s/AKfycbwYGHd6sfYHI2p2Zx3-PdSGIoFiK166SXA1izzx5cYA0hTSCa68ol8HWH4YvAiLYFuzbw/exec';
 const TARGET = 0.85;
 const EFF = 600;
 
@@ -747,6 +771,7 @@ async function loadData(){
     }
 
     logs = parsed;
+    hotData = parsed.map((e,i)=>({ no:i+1, date:e.date, site:e.site, machine:e.machine_full, shift:e.shift, operator:e.operator, wo:e.wo, part:e.part, qty:e.qty||'', start:e.start, end:e.end, runMin:e.run_min||'', downReason:e.down_reason, remark:e.remark, equipStatus:e.equip_status, _new:false, _sheetRow:i+4 }));
 
     dot.className='dot dot-live';
     msg.textContent='Google Sheets 실시간 연동 완료';
@@ -789,6 +814,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   const ms=document.getElementById('f3-mach');
   MLIST.forEach(m=>{const o=document.createElement('option');o.value=m.full;o.textContent=m.full;ms.appendChild(o);});
   restoreLastTab();
+  initForm();
   loadData();
 
   // 10분마다 페이지 리로드 → MCP 새 세션으로 캐시 우회
@@ -1422,6 +1448,157 @@ function buildCurrentStatus(){
         </div>
       </div>`);
   });
+}
+
+// ── 스프레드시트 (Handsontable) ──
+const MACHINE_BY_SITE = {
+  'Hưng Yên': ['Hưng Yên-Global Advantage','Hưng Yên-Glory 1','Hưng Yên-Glory 2','Hưng Yên-Glory 3','Hưng Yên-Glory 4'],
+  'B8':  ['B8-Global Advantage','B8-Advantage','B8-Croma'],
+  'B1':  ['B1-Advantage 1','B1-Advantage 2','B1-Glory 1','B1-CLASSIC','B1-Croma'],
+};
+const ALL_MACHINES = Object.values(MACHINE_BY_SITE).flat();
+
+let hot = null;
+let hotData = [];
+const dirtyRows = new Set();
+
+function makeEmptyRow(no){
+  return { no: no||'', date: fd(new Date()), site:'', machine:'', shift:'주간(D)', operator:'', wo:'', part:'', qty:'', start:'', end:'', runMin:'', downReason:'', remark:'', equipStatus:'', _new:true };
+}
+
+function initSpreadsheet(){
+  const container = document.getElementById('hot-container');
+  if(!container || hot) return;
+
+  hot = new Handsontable(container, {
+    data: hotData.length ? hotData : [makeEmptyRow(1)],
+    licenseKey: 'non-commercial-and-evaluation',
+    colHeaders: ['No.','날짜','사이트','장비명','교대','작업자','고객사/WO','Part No.','수량','시작','종료','가동(분)','비가동사유','비고','장비상태'],
+    columns: [
+      { data:'no', readOnly:true, width:40 },
+      { data:'date', width:100 },
+      { data:'site', type:'dropdown', source:['Hưng Yên','B8','B1'], strict:false, width:95 },
+      { data:'machine', type:'autocomplete', source:ALL_MACHINES, strict:false, width:165 },
+      { data:'shift', type:'dropdown', source:['주간(D)','야간(N)'], strict:false, width:80 },
+      { data:'operator', width:75 },
+      { data:'wo', width:110 },
+      { data:'part', width:135 },
+      { data:'qty', type:'numeric', width:55 },
+      { data:'start', width:65 },
+      { data:'end', width:65 },
+      { data:'runMin', type:'numeric', width:70 },
+      { data:'downReason', width:115 },
+      { data:'remark', width:95 },
+      { data:'equipStatus', type:'dropdown', source:['','고장','PM','대기'], strict:false, width:75 },
+    ],
+    rowHeaders: true,
+    stretchH: 'last',
+    height: '100%',
+    width: '100%',
+    contextMenu: true,
+    manualColumnResize: true,
+    afterChange(changes, source){
+      if(source==='loadData') return;
+      if(!changes) return;
+      changes.forEach(([row])=>{ dirtyRows.add(row); });
+      highlightDirty();
+    },
+    cells(row){
+      if(dirtyRows.has(row)) return { className:'dirty-row' };
+      return {};
+    },
+  });
+
+  // dirty row yellow highlight
+  const style = document.createElement('style');
+  style.textContent = '.dirty-row { background:#fffde7 !important; }';
+  document.head.appendChild(style);
+}
+
+function refreshHot(){
+  if(!hot) { initSpreadsheet(); return; }
+  hot.loadData(hotData.length ? hotData : [makeEmptyRow(1)]);
+  dirtyRows.clear();
+  highlightDirty();
+}
+
+function highlightDirty(){
+  if(hot) hot.render();
+}
+
+function addHotRow(){
+  if(!hot) initSpreadsheet();
+  const no = hotData.length + 1;
+  const row = makeEmptyRow(no);
+  hotData.push(row);
+  hot.loadData(hotData);
+  dirtyRows.add(hotData.length - 1);
+  hot.selectCell(hotData.length - 1, 1);
+  hot.render();
+}
+
+async function saveHotChanges(){
+  if(!hot){ alert('스프레드시트가 초기화되지 않았습니다.'); return; }
+  const newRows = [];
+  const updateRows = [];
+  dirtyRows.forEach(rowIdx=>{
+    const row = hotData[rowIdx];
+    if(!row) return;
+    if(row._new) newRows.push(row);
+    else updateRows.push({ ...row, _sheetRow: row._sheetRow });
+  });
+  if(!newRows.length && !updateRows.length){ alert('변경된 데이터가 없습니다.'); return; }
+
+  if(!APPS_SCRIPT_URL){
+    const url = prompt('Apps Script URL을 입력하세요:');
+    if(!url) return;
+    APPS_SCRIPT_URL = url.trim();
+    try{ localStorage.setItem('cmm_apps_script_url', APPS_SCRIPT_URL); }catch(e){}
+  }
+
+  const statusEl = document.getElementById('sheet-status');
+  statusEl.textContent = '저장 중...';
+  statusEl.style.color = '#374151';
+
+  try{
+    let saved = 0;
+    if(newRows.length){
+      const clean = newRows.map(r=>({ date:r.date, site:r.site, machine:r.machine, shift:r.shift, operator:r.operator, wo:r.wo, part:r.part, qty:r.qty||0, start:r.start, end:r.end, runMin:r.runMin||0, downReason:r.downReason, remark:r.remark, equipStatus:r.equipStatus }));
+      const url = `${APPS_SCRIPT_URL}?action=batchWrite&rows=${encodeURIComponent(JSON.stringify(clean))}`;
+      const res = await fetch(url);
+      const result = await res.json();
+      if(!result.success) throw new Error(result.error||'저장 실패');
+      saved += newRows.length;
+    }
+    if(updateRows.length){
+      for(const row of updateRows){
+        const clean = { date:row.date, site:row.site, machine:row.machine, shift:row.shift, operator:row.operator, wo:row.wo, part:row.part, qty:row.qty||0, start:row.start, end:row.end, runMin:row.runMin||0, downReason:row.downReason, remark:row.remark, equipStatus:row.equipStatus, _sheetRow:row._sheetRow };
+        const url = `${APPS_SCRIPT_URL}?action=updateRow&data=${encodeURIComponent(JSON.stringify(clean))}`;
+        const res = await fetch(url);
+        const result = await res.json();
+        if(!result.success) throw new Error(result.error||'업데이트 실패');
+        saved++;
+      }
+    }
+    statusEl.textContent = `✅ ${saved}행 저장 완료`;
+    statusEl.style.color = '#2e7d32';
+    dirtyRows.clear();
+    // mark saved rows as not new
+    newRows.forEach(r=>{ r._new = false; });
+    hot.render();
+    setTimeout(()=>{ statusEl.textContent=''; }, 5000);
+  } catch(err){
+    statusEl.textContent = '❌ 오류: '+err.message;
+    statusEl.style.color = '#c62828';
+  }
+}
+
+function initForm(){
+  // sheet will init when user clicks the tab
+}
+
+async function loadSheetData(){
+  await loadData();
 }
 
 function renderLog(){
