@@ -277,7 +277,8 @@ span.na-b{background:#f5f5f5;color:#bbb;border-radius:8px;padding:1px 6px;font-s
     <button class="hot-btn hot-btn-green" onclick="saveHotChanges()">💾 구글시트 저장</button>
     <button class="hot-btn hot-btn-secondary" onclick="loadSheetData().then(refreshHot)">↻ 새로고침</button>
     <span id="sheet-status"></span>
-    <span style="margin-left:auto;font-size:10px;color:#6b7280">💡 셀 클릭 후 바로 입력 가능 | 노란색 = 미저장 변경사항</span>
+    <span id="hot-row-info" style="font-size:10px;color:#6b7280"></span>
+    <span style="margin-left:auto;font-size:10px;color:#6b7280">💡 셀 클릭 후 바로 입력 | 노란색 = 미저장</span>
   </div>
   <div id="hot-container" style="height:calc(100vh - 195px);overflow:hidden;border:1px solid #BDD7EE;border-radius:4px"></div>
 </div>
@@ -771,7 +772,10 @@ async function loadData(){
     }
 
     logs = parsed;
-    hotData = parsed.map((e,i)=>({ no:i+1, date:e.date, site:e.site, machine:e.machine_full, shift:e.shift, operator:e.operator, wo:e.wo, part:e.part, qty:e.qty||'', start:e.start, end:e.end, runMin:e.run_min||'', downReason:e.down_reason, remark:e.remark, equipStatus:e.equip_status, _new:false, _sheetRow:i+4 }));
+    const MAX_ROWS = 200;
+    const sliced = parsed.slice(-MAX_ROWS);
+    const offset = parsed.length - sliced.length;
+    hotData = sliced.map((e,i)=>({ no:offset+i+1, date:e.date, site:e.site, machine:e.machine_full, shift:e.shift, operator:e.operator, wo:e.wo, part:e.part, qty:e.qty||'', start:e.start, end:e.end, runMin:e.run_min||'', downReason:e.down_reason, remark:e.remark, equipStatus:e.equip_status, _new:false, _sheetRow:offset+i+4 }));
 
     dot.className='dot dot-live';
     msg.textContent='Google Sheets 실시간 연동 완료';
@@ -1501,7 +1505,6 @@ function initSpreadsheet(){
       if(source==='loadData') return;
       if(!changes) return;
       changes.forEach(([row])=>{ dirtyRows.add(row); });
-      highlightDirty();
     },
     cells(row){
       if(dirtyRows.has(row)) return { className:'dirty-row' };
@@ -1519,12 +1522,11 @@ function refreshHot(){
   if(!hot) { initSpreadsheet(); return; }
   hot.loadData(hotData.length ? hotData : [makeEmptyRow(1)]);
   dirtyRows.clear();
-  highlightDirty();
+  const infoEl = document.getElementById('hot-row-info');
+  if(infoEl) infoEl.textContent = `최근 ${hotData.length}행 표시 중`;
 }
 
-function highlightDirty(){
-  if(hot) hot.render();
-}
+function highlightDirty(){}
 
 function addHotRow(){
   if(!hot) initSpreadsheet();
