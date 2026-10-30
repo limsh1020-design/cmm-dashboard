@@ -162,7 +162,7 @@ span.na-b{background:#f5f5f5;color:#bbb;border-radius:8px;padding:1px 6px;font-s
   <div class="tab"     onclick="sw('t5',this);buildCurrentStatus()" data-i18n="tab5">🔴 실시간 현황</div>
   <div class="tab"     onclick="sw('t3',this)" data-i18n="tab3">🔍 이력 조회</div>
   <div class="tab"     onclick="sw('t6',this);buildProductTab()">📦 제품 분석</div>
-  <div class="tab"     onclick="sw('t8',this);setTimeout(initSpreadsheet,50)">✏️ 데이터 입력</div>
+  <div class="tab"     onclick="sw('t8',this);setTimeout(()=>{if(hot){hot.refreshDimensions();hot.loadData(hotData.length?hotData:[makeEmptyRow(nextNo())]);dirtyRows.clear();}else{initSpreadsheet();}},80)">✏️ 데이터 입력</div>
 </div>
 
 <div class="pane on" id="t0">
@@ -1655,8 +1655,15 @@ function initSpreadsheet(){
 function refreshHot(){
   const infoEl = document.getElementById('hot-row-info');
   if(infoEl) infoEl.textContent = `최근 ${hotData.length}행 표시 중`;
-  if(!hot) { initSpreadsheet(); return; }
+  // 탭이 활성화된 경우에만 초기화/업데이트
+  const t8 = document.getElementById('t8');
+  const isVisible = t8 && t8.style.display !== 'none' && !t8.classList.contains('hide');
+  if(!hot) {
+    if(isVisible) initSpreadsheet();
+    return;
+  }
   hot.loadData(hotData.length ? hotData : [makeEmptyRow(1)]);
+  hot.refreshDimensions();
   dirtyRows.clear();
 }
 
