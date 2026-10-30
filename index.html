@@ -1582,8 +1582,8 @@ function initSpreadsheet(){
       { data:'no', readOnly:true, width:40 },
       { data:'date', width:100 },
       { data:'site', type:'dropdown', source:['Hưng Yên','B8','B1'], strict:false, width:95,
-        renderer(instance, td, row, col, prop, value){
-          Handsontable.renderers.getRenderer('dropdown')(instance, td, row, col, prop, value);
+        renderer(instance, td, row, col, prop, value, cellProperties){
+          Handsontable.renderers.getRenderer('dropdown')(instance, td, row, col, prop, value, cellProperties);
           const colors = {'Hưng Yên':'#EBF3FB','B8':'#EBF5EB','B1':'#FEF3E8'};
           if(!dirtyRows.has(row) && colors[value]) td.style.background = colors[value];
         }
@@ -1603,8 +1603,8 @@ function initSpreadsheet(){
       { data:'start', width:65 },
       { data:'end', width:65 },
       { data:'runMin', type:'numeric', width:70,
-        renderer(instance, td, row, col, prop, value){
-          Handsontable.renderers.getRenderer('numeric')(instance, td, row, col, prop, value);
+        renderer(instance, td, row, col, prop, value, cellProperties){
+          Handsontable.renderers.getRenderer('numeric')(instance, td, row, col, prop, value, cellProperties);
           if(value!==null && value!=='' && !isNaN(value)){
             const rate = Number(value)/600;
             if(!dirtyRows.has(row)){
